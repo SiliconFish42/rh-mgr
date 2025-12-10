@@ -7,6 +7,7 @@ interface HackFilters {
   sortBy?: string;
   sortDirection?: string;
   difficulty?: string;
+  difficulties?: string[];
   hackType?: string; // Deprecated: use hackTypes instead
   hackTypes?: string[]; // Array of hack types for AND filtering
   author?: string;
@@ -31,6 +32,7 @@ export function useHacks(filters: HackFilters, enabled: boolean = true) {
     filters.sortBy,
     filters.sortDirection,
     filters.difficulty,
+    filters.difficulties,
     filters.hackType,
     filters.hackTypes,
     filters.author,
@@ -46,9 +48,9 @@ export function useHacks(filters: HackFilters, enabled: boolean = true) {
       const page = filters.page || 1;
       const pageSize = customLimit || 50; // Use custom limit or default page size
       const offset = customLimit ? 0 : (page - 1) * pageSize; // If using custom limit, start from 0
-      
-      const result = await invoke("get_hacks", { 
-        limit: pageSize, 
+
+      const result = await invoke("get_hacks", {
+        limit: pageSize,
         offset: offset,
         filters: {
           patched_only: filters.patchedOnly,
@@ -56,6 +58,7 @@ export function useHacks(filters: HackFilters, enabled: boolean = true) {
           sort_by: filters.sortBy,
           sort_direction: filters.sortDirection,
           difficulty: filters.difficulty || undefined,
+          difficulties: filters.difficulties && filters.difficulties.length > 0 ? filters.difficulties : undefined,
           hack_type: filters.hackType || undefined, // Legacy support
           hack_types: filters.hackTypes && filters.hackTypes.length > 0 ? filters.hackTypes : undefined,
           author: filters.author || undefined,

@@ -28,6 +28,7 @@ pub struct HackFilters {
     pub sort_by: Option<String>, // "name", "date", "rating", "downloads"
     pub sort_direction: Option<String>, // "asc", "desc"
     pub difficulty: Option<String>,
+    pub difficulties: Option<Vec<String>>, // Array of difficulties for OR filtering
     pub hack_type: Option<String>, // Deprecated: use hack_types instead
     pub hack_types: Option<Vec<String>>,
     pub author: Option<String>,
@@ -57,10 +58,23 @@ pub fn get_hacks(
     if filters.unpatched_only.unwrap_or(false) {
         where_clauses.push("file_path IS NULL".to_string());
     }
-    if let Some(difficulty) = &filters.difficulty {
+    
+    // Handle multiple difficulties with OR logic (hack can match ANY of the selected)
+    if let Some(difficulties) = &filters.difficulties {
+        if !difficulties.is_empty() {
+            let mut diff_conditions = Vec::new();
+            for difficulty in difficulties {
+                diff_conditions.push("difficulty = ?");
+                params_vec.push(Box::new(difficulty.clone()));
+            }
+            where_clauses.push(format!("({})", diff_conditions.join(" OR ")));
+        }
+    } else if let Some(difficulty) = &filters.difficulty {
+        // Fallback for single difficulty
         where_clauses.push("difficulty = ?".to_string());
         params_vec.push(Box::new(difficulty.clone()));
     }
+
     // Handle multiple hack types with AND logic (all selected types must be present)
     if let Some(hack_types) = &filters.hack_types {
         if !hack_types.is_empty() {
@@ -262,6 +276,7 @@ impl Default for HackFilters {
             sort_by: None,
             sort_direction: None,
             difficulty: None,
+            difficulties: None,
             hack_type: None,
             hack_types: None,
             author: None,

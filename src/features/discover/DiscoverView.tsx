@@ -67,7 +67,7 @@ export function DiscoverView() {
     ratingValue,
     setRatingValue,
     clearFilters,
-  } = useFilters();
+  } = useFilters("discover-filters");
 
   // Convert multi-select filters to filter values for API
   // Note: We keep filterType for backward compatibility but use hackTypes array for AND filtering
@@ -76,16 +76,20 @@ export function DiscoverView() {
       .filter(([_, checked]) => checked)
       .map(([key]) => key);
   }, [hackTypeFilters]);
-  
-  useEffect(() => {
-    const selectedDifficulties = Object.entries(difficultyFilters)
+
+  const selectedDifficulties = useMemo(() => {
+    return Object.entries(difficultyFilters)
       .filter(([_, checked]) => checked)
       .map(([key]) => key);
-    
+  }, [difficultyFilters]);
+
+  useEffect(() => {
+    // Only update single select filters (for backward compat or if needed by other components)
+    // but we use the array versions for querying now in Discover mode
     const newDifficulty = selectedDifficulties.length > 0 ? selectedDifficulties[0] : "";
     const newType = selectedTypes.length > 0 ? selectedTypes[0] : ""; // Keep for backward compatibility
     const newMinRating = ratingValue === 0 ? "" : ratingValue.toString();
-    
+
     if (newDifficulty !== filterDifficulty || newType !== filterType || newMinRating !== filterMinRating) {
       setFilterDifficulty(newDifficulty);
       setFilterType(newType);
@@ -97,7 +101,7 @@ export function DiscoverView() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDifficulty, filterType, filterAuthor, filterMinRating, sortBy, sortDirection, debouncedSearchQuery]);
+  }, [filterDifficulty, filterType, filterAuthor, filterMinRating, sortBy, sortDirection, debouncedSearchQuery, selectedDifficulties]);
 
   // Load all hacks for search and autocomplete (with a large limit to get all hacks)
   // Only load when user starts typing to improve initial page load
@@ -106,7 +110,8 @@ export function DiscoverView() {
       unpatchedOnly: true,
       sortBy: "name", // Simple sort for search index
       sortDirection: "asc",
-      difficulty: filterDifficulty,
+      difficulty: filterDifficulty, // Fallback
+      difficulties: selectedDifficulties.length > 0 ? selectedDifficulties : undefined,
       hackTypes: selectedTypes.length > 0 ? selectedTypes : undefined, // Use AND logic for multiple types
       minRating: filterMinRating,
       limit: 10000, // Large limit to get all hacks for search
@@ -120,7 +125,8 @@ export function DiscoverView() {
       unpatchedOnly: true,
       sortBy,
       sortDirection,
-      difficulty: filterDifficulty,
+      difficulty: filterDifficulty, // Fallback
+      difficulties: selectedDifficulties.length > 0 ? selectedDifficulties : undefined,
       hackTypes: selectedTypes.length > 0 ? selectedTypes : undefined, // Use AND logic for multiple types
       minRating: filterMinRating,
       page: currentPage,
@@ -135,7 +141,7 @@ export function DiscoverView() {
   // Preprocess hacks to extract searchable text from JSON fields - only when data changes
   const processedHacks = useMemo(() => {
     if (allHacks.length === 0) return [];
-    
+
     return allHacks.map((hack) => {
       let authorsText = "";
       let tagsText = "";
@@ -205,7 +211,7 @@ export function DiscoverView() {
         return hack;
       });
     }
-    
+
     // If not searching, use paginated hacks
     return paginatedHacks;
   }, [debouncedSearchQuery, fuse, paginatedHacks]);

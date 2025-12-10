@@ -36,7 +36,7 @@ export function LibraryView() {
     filterMinRating,
     setFilterMinRating,
     clearFilters,
-  } = useFilters();
+  } = useFilters("library-filters");
 
   const { hacks, loading, loadHacks } = useHacks(
     {
