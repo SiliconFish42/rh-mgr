@@ -4,6 +4,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "ROM Hack Manager",
   description: "A modern desktop application for managing Super Mario World ROM hacks.",
+  base: '/rh-mgr/',
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -42,7 +43,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/vuejs/vitepress' } // TODO: Update with actual repo
+      { icon: 'github', link: 'https://github.com/SiliconFish42/rh-mgr' }
     ]
   }
 })
