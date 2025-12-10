@@ -28,6 +28,7 @@ pub fn run() {
             commands::library::get_hacks,
             commands::library::get_hack_details,
             commands::library::get_filter_options,
+            commands::library::delete_hack,
             commands::launcher::launch_hack,
             commands::launcher::save_config,
             commands::launcher::get_config,

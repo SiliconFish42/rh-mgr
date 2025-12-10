@@ -284,3 +284,43 @@ impl Default for HackFilters {
         }
     }
 }
+
+#[command]
+pub fn delete_hack(
+    state: tauri::State<AppState>,
+    hack_id: u32,
+    delete_completions: bool,
+) -> Result<(), String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    
+    // 1. Get file path
+    let file_path: Option<String> = conn.query_row(
+        "SELECT file_path FROM hacks WHERE id = ?1",
+        params![hack_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    
+    // 2. Delete file if exists
+    if let Some(path) = file_path {
+        let path = std::path::Path::new(&path);
+        if path.exists() {
+            std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        }
+    }
+    
+    // 3. Delete completions if requested
+    if delete_completions {
+        conn.execute(
+            "DELETE FROM hack_completions WHERE hack_id = ?1",
+            params![hack_id],
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // 4. Update hack record (remove file_path instead of deleting record)
+    conn.execute(
+        "UPDATE hacks SET file_path = NULL WHERE id = ?1",
+        params![hack_id],
+    ).map_err(|e| e.to_string())?;
+    
+    Ok(())
+}

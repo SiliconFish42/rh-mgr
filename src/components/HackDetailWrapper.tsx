@@ -5,6 +5,8 @@ interface HackDetailWrapperProps {
   onClose: () => void;
   onLaunch: (hack: any) => void | Promise<void>;
   onPatch: (hack: any) => void | Promise<void>;
+  onRemove?: (hack: any, deleteCompletions: boolean) => void | Promise<void>;
+  isPatching?: boolean;
 }
 
 export function HackDetailWrapper({
@@ -12,14 +14,18 @@ export function HackDetailWrapper({
   onClose,
   onLaunch,
   onPatch,
+  onRemove,
+  isPatching = false,
 }: HackDetailWrapperProps) {
   return (
     <div className="h-full overflow-y-auto p-8">
-      <HackDetails 
-        hack={hack} 
-        onClose={onClose} 
+      <HackDetails
+        hack={hack}
+        onClose={onClose}
         onLaunch={onLaunch}
         onPatch={onPatch}
+        onRemove={onRemove}
+        isPatching={isPatching}
       />
     </div>
   );

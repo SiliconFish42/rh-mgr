@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
 import { CompletionBadge } from "@/components/CompletionBadge";
@@ -24,49 +23,17 @@ interface HackListProps {
   hacks: Hack[];
   loading?: boolean;
   onHackSelect?: (hack: Hack | null) => void;
+  onLaunch?: (hack: Hack) => void;
+  onPatch?: (hack: Hack) => void;
+  isPatching?: boolean;
 }
 
-export function HackList({ hacks, loading, onHackSelect }: HackListProps) {
+export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPatching = false }: HackListProps) {
   const handleHackClick = (hack: Hack) => {
     if (onHackSelect) {
       onHackSelect(hack);
     }
   };
-
-  async function launchHack(hack: Hack) {
-    if (!hack.file_path) {
-      alert("This hack hasn't been patched yet. Please patch it first.");
-      return;
-    }
-    
-    try {
-      await invoke("launch_hack", { filePath: hack.file_path });
-    } catch (error: any) {
-      const errorMsg = error?.message || error?.toString() || JSON.stringify(error) || "Unknown error";
-      console.error("Failed to launch hack:", error);
-      alert(`Failed to launch hack: ${errorMsg}`);
-    }
-  }
-
-  async function patchHack(hack: Hack) {
-    if (!hack.download_url || !hack.api_id) {
-      alert("This hack doesn't have a download URL available.");
-      return;
-    }
-    
-    try {
-      await invoke("patch_rom", { 
-        apiId: hack.api_id,
-        downloadUrl: hack.download_url 
-      });
-      alert("Patch applied successfully! The hack is now available in your library.");
-      window.location.reload();
-    } catch (error: any) {
-      const errorMsg = error?.message || error?.toString() || JSON.stringify(error) || "Unknown error";
-      console.error("Failed to patch hack:", error);
-      alert(`Failed to patch hack: ${errorMsg}`);
-    }
-  }
 
   function parseJsonField<T>(field: string | null | undefined, defaultVal: T): T {
     if (!field) return defaultVal;
@@ -144,7 +111,7 @@ export function HackList({ hacks, loading, onHackSelect }: HackListProps) {
           {hacks.map((hack) => {
             const authors = parseJsonField<Array<{ name: string }>>(hack.authors, []);
             const authorNames = authors.map(a => a.name).join(", ") || "Unknown author";
-            
+
             return (
               <tr
                 key={hack.id}
@@ -194,19 +161,19 @@ export function HackList({ hacks, loading, onHackSelect }: HackListProps) {
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (hack.file_path) {
-                          launchHack(hack);
-                        } else if (hack.download_url) {
-                          patchHack(hack);
+                        if (hack.file_path && onLaunch) {
+                          onLaunch(hack);
+                        } else if (hack.download_url && onPatch) {
+                          onPatch(hack);
                         } else {
                           handleHackClick(hack);
                         }
                       }}
                       size="sm"
                       variant={hack.file_path ? "outline" : "default"}
-                      disabled={!hack.file_path && !hack.download_url && !onHackSelect}
+                      disabled={(!hack.file_path && !hack.download_url && !onHackSelect) || (!!hack.download_url && !hack.file_path && isPatching)}
                     >
-                      {hack.file_path ? "Launch" : hack.download_url ? "Get & Patch" : "View Details"}
+                      {hack.file_path ? "Launch" : hack.download_url ? (isPatching && !hack.file_path ? "Patching..." : "Get & Patch") : "View Details"}
                     </Button>
                   </div>
                 </td>

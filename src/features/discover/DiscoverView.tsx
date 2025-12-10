@@ -224,7 +224,7 @@ export function DiscoverView() {
   // If we have more pages, show at least current page + 5, otherwise current page is the last
   const estimatedLastPage = hasMorePages ? Math.max(currentPage + 5, 10) : currentPage;
 
-  const { launchHack, patchHack } = useHackActions();
+  const { launchHack, patchHack, isPatching } = useHackActions();
 
   function handleClearFilters() {
     clearFilters();
@@ -255,6 +255,7 @@ export function DiscoverView() {
             onClose={() => setSelectedHack(null)}
             onLaunch={launchHack}
             onPatch={patchHack}
+            isPatching={isPatching}
           />
         ) : (
           /* Grid View with Search and Pagination */
@@ -327,9 +328,23 @@ export function DiscoverView() {
             {/* Hack Grid or List */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               {viewMode === "cards" ? (
-                <HackGrid hacks={hacks} loading={loading} onHackSelect={setSelectedHack} />
+                <HackGrid
+                  hacks={hacks}
+                  loading={loading}
+                  onHackSelect={setSelectedHack}
+                  onLaunch={launchHack}
+                  onPatch={patchHack}
+                  isPatching={isPatching}
+                />
               ) : (
-                <HackList hacks={hacks} loading={loading} onHackSelect={setSelectedHack} />
+                <HackList
+                  hacks={hacks}
+                  loading={loading}
+                  onHackSelect={setSelectedHack}
+                  onLaunch={launchHack}
+                  onPatch={patchHack}
+                  isPatching={isPatching}
+                />
               )}
             </div>
 

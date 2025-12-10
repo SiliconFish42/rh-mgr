@@ -51,7 +51,17 @@ export function LibraryView() {
     true
   );
 
-  const { launchHack, patchHack } = useHackActions();
+  const { launchHack, patchHack, deleteHack, isPatching } = useHackActions();
+
+  async function handleRemove(hack: any, deleteCompletions: boolean) {
+    try {
+      await deleteHack(hack.id, deleteCompletions);
+      setSelectedHack(null);
+      loadHacks();
+    } catch (error) {
+      // Error handled in hook
+    }
+  }
 
   function handleClearFilters() {
     clearFilters();
@@ -85,6 +95,8 @@ export function LibraryView() {
             onClose={() => setSelectedHack(null)}
             onLaunch={launchHack}
             onPatch={patchHack}
+            onRemove={handleRemove}
+            isPatching={isPatching}
           />
         ) : (
           /* Grid View with Search and Sort */
@@ -115,9 +127,23 @@ export function LibraryView() {
             {/* Hack Grid or List */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               {viewMode === "cards" ? (
-                <HackGrid hacks={hacks} loading={loading} onHackSelect={setSelectedHack} />
+                <HackGrid
+                  hacks={hacks}
+                  loading={loading}
+                  onHackSelect={setSelectedHack}
+                  onLaunch={launchHack}
+                  onPatch={patchHack}
+                  isPatching={isPatching}
+                />
               ) : (
-                <HackList hacks={hacks} loading={loading} onHackSelect={setSelectedHack} />
+                <HackList
+                  hacks={hacks}
+                  loading={loading}
+                  onHackSelect={setSelectedHack}
+                  onLaunch={launchHack}
+                  onPatch={patchHack}
+                  isPatching={isPatching}
+                />
               )}
             </div>
           </div>

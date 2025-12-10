@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star, Play, Wrench, Trash2, Settings, Check, Plus, Edit2, X } from "lucide-react";
+import { ArrowLeft, Star, Play, Wrench, Trash2, Check, Plus, Edit2, X } from "lucide-react";
 import { useHackCompletions } from "@/hooks/useCompletions";
+import { DeleteHackDialog } from "@/components/DeleteHackDialog";
 
 interface Hack {
   id: number;
@@ -25,16 +26,17 @@ interface HackDetailsProps {
   onClose: () => void;
   onLaunch: (hack: Hack) => void;
   onPatch?: (hack: Hack) => void;
-  onRemove?: (hack: Hack) => void;
+  onRemove?: (hack: Hack, deleteCompletions: boolean) => void;
+  isPatching?: boolean;
 }
 
-export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove }: HackDetailsProps) {
+export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatching = false }: HackDetailsProps) {
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  
+
   // Completions
   const { completions, loading: completionsLoading, createCompletion, updateCompletion, deleteCompletion } = useHackCompletions(hack.id);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -182,29 +184,37 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove }: Hack
     }
   }
 
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  function handleConfirmDelete(deleteCompletions: boolean) {
+    if (onRemove) {
+      onRemove(hack, deleteCompletions);
+    }
+    setShowDeleteDialog(false);
+  }
 
   const mainImage = images.length > 0 ? images[selectedScreenshotIndex] : null;
   const isPatched = !!hack.file_path;
 
   return (
     <div className="h-full flex flex-col">
+      <DeleteHackDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleConfirmDelete}
+        hackName={hack.name}
+      />
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-        <Button 
-          onClick={onClose} 
+      <div className="relative flex items-center justify-center px-6 py-4 border-b border-border flex-shrink-0">
+        <Button
+          onClick={onClose}
           variant="ghost"
-          className="flex items-center gap-2"
+          className="absolute left-6 flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </Button>
         <h1 className="text-xl font-semibold">{hack.name}</h1>
-        <Button 
-          variant="ghost" 
-          size="icon"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
       </div>
 
       {/* Two Column Layout */}
@@ -234,19 +244,19 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove }: Hack
                   Launch Hack
                 </Button>
               ) : (
-                <Button onClick={() => onPatch?.(hack)} variant="outline" size="lg" className="w-full" disabled={!onPatch}>
+                <Button
+                  onClick={() => onPatch?.(hack)}
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  disabled={!onPatch || isPatching}
+                >
                   <Wrench className="w-4 h-4 mr-2" />
-                  Patch ROM
-                </Button>
-              )}
-              {hack.file_path && onPatch && (
-                <Button onClick={() => onPatch(hack)} variant="outline" size="lg" className="w-full">
-                  <Wrench className="w-4 h-4 mr-2" />
-                  Patch ROM
+                  {isPatching ? "Patching..." : "Patch ROM"}
                 </Button>
               )}
               {onRemove && (
-                <Button onClick={() => onRemove(hack)} variant="outline" size="lg" className="w-full">
+                <Button onClick={() => setShowDeleteDialog(true)} variant="outline" size="lg" className="w-full">
                   <Trash2 className="w-4 h-4 mr-2" />
                   Remove
                 </Button>
@@ -280,11 +290,10 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove }: Hack
                           setSelectedScreenshotIndex(i);
                         }
                       }}
-                      className={`flex-shrink-0 rounded overflow-hidden border-2 transition-colors bg-secondary flex items-center justify-center ${
-                        i === selectedScreenshotIndex
-                          ? 'border-primary'
-                          : 'border-border hover:border-primary/50'
-                      }`}
+                      className={`flex-shrink-0 rounded overflow-hidden border-2 transition-colors bg-secondary flex items-center justify-center ${i === selectedScreenshotIndex
+                        ? 'border-primary'
+                        : 'border-border hover:border-primary/50'
+                        }`}
                       style={{ width: '128px', aspectRatio: '8/7' }}
                     >
                       <img
@@ -347,13 +356,12 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove }: Hack
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`w-5 h-5 ${
-                        star <= Math.floor(hack.rating!)
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : star === Math.ceil(hack.rating!) && hack.rating! % 1 > 0
+                      className={`w-5 h-5 ${star <= Math.floor(hack.rating!)
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : star === Math.ceil(hack.rating!) && hack.rating! % 1 > 0
                           ? 'fill-yellow-400/50 text-yellow-400/50'
                           : 'text-muted-foreground'
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
