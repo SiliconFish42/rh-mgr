@@ -18,7 +18,7 @@ export function LibraryView() {
     const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     return (stored === "list" || stored === "cards") ? stored : "cards";
   });
-  const { sortBy, setSortBy, sortDirection, setSortDirection } = useSorting();
+  const { sortBy, setSortBy, sortDirection, setSortDirection } = useSorting("library-sorting");
 
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);

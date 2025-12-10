@@ -24,7 +24,7 @@ export function DiscoverView() {
     const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     return (stored === "list" || stored === "cards") ? stored : "cards";
   });
-  const { sortBy, setSortBy, sortDirection, setSortDirection } = useSorting();
+  const { sortBy, setSortBy, sortDirection, setSortDirection } = useSorting("discover-sorting");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
@@ -276,46 +276,48 @@ export function DiscoverView() {
                 items={allHacks}
                 maxSuggestions={5}
               />
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none bg-card border border-border rounded-md px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary"
+              <div className="flex bg-card rounded-md shadow-sm">
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="appearance-none h-9 w-full bg-card border border-border border-r-0 rounded-l-md px-4 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:z-10 relative"
+                  >
+                    <option value="name">Name</option>
+                    <option value="date">Date</option>
+                    <option value="rating">Rating</option>
+                    <option value="downloads">Downloads</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-20" />
+                </div>
+                <Button
+                  onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+                  variant="outline"
+                  size="icon"
+                  className="w-9 rounded-l-none border-l-0 focus:z-10"
+                  title={sortDirection === "asc" ? "Sort ascending" : "Sort descending"}
                 >
-                  <option value="name">Name</option>
-                  <option value="date">Date</option>
-                  <option value="rating">Rating</option>
-                  <option value="downloads">Downloads</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  {sortDirection === "asc" ? (
+                    <ArrowUp className="w-4 h-4" />
+                  ) : (
+                    <ArrowDown className="w-4 h-4" />
+                  )}
+                </Button>
               </div>
-              <Button
-                onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
-                variant="outline"
-                size="default"
-                className="px-3"
-                title={sortDirection === "asc" ? "Sort ascending" : "Sort descending"}
-              >
-                {sortDirection === "asc" ? (
-                  <ArrowUp className="w-4 h-4" />
-                ) : (
-                  <ArrowDown className="w-4 h-4" />
-                )}
-              </Button>
               <div className="flex border border-border rounded-md overflow-hidden">
                 <Button
                   variant={viewMode === "cards" ? "default" : "ghost"}
-                  size="sm"
+                  size="icon"
                   onClick={() => setViewMode("cards")}
-                  className="rounded-none border-0"
+                  className="rounded-none border-0 w-9 h-9"
                 >
                   <Grid3x3 className="w-4 h-4" />
                 </Button>
                 <Button
                   variant={viewMode === "list" ? "default" : "ghost"}
-                  size="sm"
+                  size="icon"
                   onClick={() => setViewMode("list")}
-                  className="rounded-none border-0 border-l border-border"
+                  className="rounded-none border-0 border-l border-border w-9 h-9"
                 >
                   <List className="w-4 h-4" />
                 </Button>
