@@ -17,6 +17,7 @@ interface Hack {
   difficulty?: string | null;
   hack_type?: string | null;
   download_url?: string | null;
+  readme?: string | null;
 }
 
 interface HackListProps {
@@ -125,7 +126,7 @@ export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
                   </div>
                   {hack.description && (
                     <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                      {hack.description}
+                      {hack.description.replace(/<[^>]*>/g, '')}
                     </div>
                   )}
                 </td>

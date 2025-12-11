@@ -19,6 +19,7 @@ pub struct Hack {
     pub difficulty: Option<String>,
     pub hack_type: Option<String>, // Using hack_type to avoid Rust keyword conflict
     pub download_url: Option<String>,
+    pub readme: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +146,7 @@ pub fn get_hacks_impl(
     };
     
     let query = format!(
-        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url 
+        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme 
          FROM hacks {} {} LIMIT ? OFFSET ?",
         where_clause, order_by
     );
@@ -174,6 +175,7 @@ pub fn get_hacks_impl(
                 difficulty: row.get(11)?,
                 hack_type: row.get(12)?,
                 download_url: row.get(13)?,
+                readme: row.get(14)?,
             })
         }
     ).map_err(|e| e.to_string())?;
@@ -194,7 +196,7 @@ pub fn get_hack_details(
     let conn = state.db.get().map_err(|e| e.to_string())?;
     
     let mut stmt = conn.prepare(
-        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url 
+        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme 
          FROM hacks WHERE id = ?1"
     ).map_err(|e| e.to_string())?;
     
@@ -214,6 +216,7 @@ pub fn get_hack_details(
             difficulty: row.get(11)?,
             hack_type: row.get(12)?,
             download_url: row.get(13)?,
+            readme: row.get(14)?,
         })
     }).map_err(|e| e.to_string())?;
     

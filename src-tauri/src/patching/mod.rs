@@ -32,8 +32,9 @@ impl Patcher {
         Ok(())
     }
 
-    pub fn extract_patch_from_zip(zip_path: &Path, output_dir: &Path) -> Result<PathBuf, String> {
+    pub fn extract_patch_from_zip(zip_path: &Path, output_dir: &Path) -> Result<(PathBuf, Option<String>), String> {
         use zip::ZipArchive;
+        use std::io::Read;
         
         // Ensure output directory exists
         fs::create_dir_all(output_dir).map_err(|e| format!("Failed to create output directory: {}", e))?;
@@ -43,12 +44,40 @@ impl Patcher {
         
         // Find the first .bps or .ips file in the archive
         let mut patch_path = None;
+        let mut readme_content = None;
+
+        // First pass: look for patch file
         for i in 0..archive.len() {
             let file = archive.by_index(i).map_err(|e| format!("Failed to read zip entry {}: {}", i, e))?;
             let name = file.name();
             if name.ends_with(".bps") || name.ends_with(".ips") {
                 patch_path = Some(name.to_string());
                 break;
+            }
+        }
+        
+        // Second pass: look for readme (txt file)
+        // We'll prioritize files with "readme" in the name, otherwise take the first txt file
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).map_err(|e| format!("Failed to read zip entry {}: {}", i, e))?;
+            let name = file.name().to_string(); // clone name to avoid borrow issues
+            let lower_name = name.to_lowercase();
+            
+            if lower_name.ends_with(".txt") {
+                if lower_name.contains("readme") {
+                    let mut content = String::new();
+                    // Ignore errors reading non-UTF8 readmes
+                    if file.read_to_string(&mut content).is_ok() {
+                        readme_content = Some(content);
+                        break; // Found the best candidate
+                    }
+                } else if readme_content.is_none() {
+                    let mut content = String::new();
+                    if file.read_to_string(&mut content).is_ok() {
+                        readme_content = Some(content);
+                        // Keep looking for a better match (explicit "readme")
+                    }
+                }
             }
         }
         
@@ -67,7 +96,7 @@ impl Patcher {
         let mut outfile = fs::File::create(&output_path).map_err(|e| format!("Failed to create output file: {}", e))?;
         std::io::copy(&mut patch_file, &mut outfile).map_err(|e| format!("Failed to write patch file: {}", e))?;
         
-        Ok(output_path)
+        Ok((output_path, readme_content))
     }
 }
 

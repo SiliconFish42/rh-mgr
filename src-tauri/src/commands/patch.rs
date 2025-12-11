@@ -100,11 +100,11 @@ pub async fn patch_rom(
         "message": "Extracting patch...",
     }));
     
-    let extracted_patch = if is_zip {
+    let (extracted_patch, readme_content) = if is_zip {
         Patcher::extract_patch_from_zip(&downloaded_file, &temp_dir)
             .map_err(|e| format!("Failed to extract patch: {}", e))?
     } else {
-        downloaded_file.clone()
+        (downloaded_file.clone(), None)
     };
     
     // Generate output filename based on hack name
@@ -135,8 +135,8 @@ pub async fn patch_rom(
     // Update database with the patched file path
     let output_path_str = output_path.to_string_lossy().to_string();
     conn.execute(
-        "UPDATE hacks SET file_path = ?1 WHERE api_id = ?2",
-        rusqlite::params![output_path_str, api_id],
+        "UPDATE hacks SET file_path = ?1, readme = ?2 WHERE api_id = ?3",
+        rusqlite::params![output_path_str, readme_content, api_id],
     ).map_err(|e| format!("Failed to update hack in database: {}", e))?;
     
     // Clean up temporary files

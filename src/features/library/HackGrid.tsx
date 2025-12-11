@@ -124,7 +124,7 @@ export function HackGrid({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
               </div>
               <p className="text-sm text-muted-foreground mb-2">by {authorNames}</p>
               <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">
-                {hack.description || "No description available."}
+                {hack.description ? hack.description.replace(/<[^>]*>/g, '') : "No description available."}
               </p>
 
               {/* Stats */}

@@ -19,6 +19,7 @@ interface Hack {
   difficulty?: string | null;
   hack_type?: string | null;
   download_url?: string | null;
+  readme?: string | null;
 }
 
 interface HackDetailsProps {
@@ -36,6 +37,7 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [activeTab, setActiveTab] = useState<'description' | 'readme'>('description');
 
   // Completions
   const { completions, loading: completionsLoading, createCompletion, updateCompletion, deleteCompletion } = useHackCompletions(hack.id);
@@ -66,7 +68,13 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
     if (carouselRef.current) {
       carouselRef.current.scrollLeft = 0;
     }
-  }, [hack.id]);
+    // Default to readme if no description, otherwise description
+    if (!hack.description && hack.readme) {
+      setActiveTab('readme');
+    } else {
+      setActiveTab('description');
+    }
+  }, [hack.id, hack.description, hack.readme]);
 
   // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -394,18 +402,48 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
               </div>
             )}
 
-            {/* Description */}
-            {hack.description && (
-              <div className="space-y-3">
-                {hack.description
-                  .replace(/<[^>]*>/g, '') // Remove HTML tags
-                  .split(/\n\s*\n/) // Split on double newlines
-                  .filter(p => p.trim().length > 0)
-                  .map((paragraph, i) => (
-                    <p key={i} className="text-muted-foreground leading-relaxed">
-                      {paragraph.trim()}
-                    </p>
-                  ))}
+            {/* Description / Readme Tabs */}
+            {(hack.description || hack.readme) && (
+              <div className="space-y-4">
+                {hack.readme ? (
+                  <div className="flex border-b border-border">
+                    <button
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${!activeTab || activeTab === 'description'
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      onClick={() => setActiveTab('description')}
+                    >
+                      Description
+                    </button>
+                    <button
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'readme'
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      onClick={() => setActiveTab('readme')}
+                    >
+                      Readme
+                    </button>
+                  </div>
+                ) : (
+                  <h3 className="text-lg font-semibold border-b border-border pb-2">Description</h3>
+                )}
+
+                {(!activeTab || activeTab === 'description') && hack.description && (
+                  <div
+                    className="space-y-3 text-muted-foreground leading-relaxed [&>p]:mb-2 last:[&>p]:mb-0"
+                    dangerouslySetInnerHTML={{ __html: hack.description }}
+                  />
+                )}
+
+                {activeTab === 'readme' && hack.readme && (
+                  <div className="bg-muted/50 p-4 rounded-md overflow-auto max-h-[400px]">
+                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
+                      {hack.readme}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
 
