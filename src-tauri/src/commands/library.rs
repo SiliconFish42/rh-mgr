@@ -43,6 +43,15 @@ pub fn get_hacks(
     filters: Option<HackFilters>,
 ) -> Result<Vec<Hack>, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
+    get_hacks_impl(&conn, limit, offset, filters)
+}
+
+pub fn get_hacks_impl(
+    conn: &rusqlite::Connection,
+    limit: Option<u32>,
+    offset: Option<u32>,
+    filters: Option<HackFilters>,
+) -> Result<Vec<Hack>, String> {
     let limit = limit.unwrap_or(50);
     let offset = offset.unwrap_or(0);
     
@@ -323,4 +332,85 @@ pub fn delete_hack(
     ).map_err(|e| e.to_string())?;
     
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    
+    fn setup_test_db() -> AppState {
+        let state = AppState::new(":memory:");
+        let conn = state.db.get().unwrap();
+        
+        // Ensure tables exist (should be handled by AppState::new calling init_db)
+        
+        conn.execute("
+            INSERT INTO hacks (name, difficulty, type, authors, release_date, rating, downloads)
+            VALUES 
+            ('Super Mario World: Return to Dinosaur Land', 'Normal', 'Standard', '[\"RRL\"]', 1156809600, 4.5, 1000),
+            ('Kaizo Mario World', 'Kaizo', 'Kaizo', '[\"T. Takemoto\"]', 1195603200, 5.0, 5000),
+            ('Invictus', 'Kaizo', 'Kaizo', '[\"Jut\"]', 1514764800, 4.8, 2000),
+            ('Quickie World', 'Kaizo', 'Kaizo', '[\"Valerio\"]', 1530393600, 4.2, 1500)
+        ", []).unwrap();
+        
+        state
+    }
+
+    #[test]
+    fn test_get_hacks_no_filters() {
+        let state = setup_test_db();
+        let conn = state.db.get().unwrap();
+        
+        let hacks = get_hacks_impl(&conn, None, None, None).unwrap();
+        assert_eq!(hacks.len(), 4);
+    }
+    
+    #[test]
+    fn test_get_hacks_filter_difficulty() {
+        let state = setup_test_db();
+        let conn = state.db.get().unwrap();
+        
+        let filters = HackFilters {
+            difficulty: Some("Normal".to_string()),
+            ..Default::default()
+        };
+        
+        let hacks = get_hacks_impl(&conn, None, None, Some(filters)).unwrap();
+        assert_eq!(hacks.len(), 1);
+        assert_eq!(hacks[0].name, "Super Mario World: Return to Dinosaur Land");
+    }
+    
+    #[test]
+    fn test_get_hacks_sort_rating() {
+        let state = setup_test_db();
+        let conn = state.db.get().unwrap();
+        
+        let filters = HackFilters {
+            sort_by: Some("rating".to_string()),
+            sort_direction: Some("desc".to_string()),
+            ..Default::default()
+        };
+        
+        let hacks = get_hacks_impl(&conn, None, None, Some(filters)).unwrap();
+        assert_eq!(hacks[0].name, "Kaizo Mario World"); // 5.0
+        assert_eq!(hacks[1].name, "Invictus"); // 4.8
+        assert_eq!(hacks[2].name, "Super Mario World: Return to Dinosaur Land"); // 4.5
+        assert_eq!(hacks[3].name, "Quickie World"); // 4.2
+    }
+    
+    #[test]
+    fn test_search_author() {
+        let state = setup_test_db();
+        let conn = state.db.get().unwrap();
+        
+        let filters = HackFilters {
+            author: Some("Jut".to_string()),
+            ..Default::default()
+        };
+        
+        let hacks = get_hacks_impl(&conn, None, None, Some(filters)).unwrap();
+        assert_eq!(hacks.len(), 1);
+        assert_eq!(hacks[0].name, "Invictus");
+    }
 }
