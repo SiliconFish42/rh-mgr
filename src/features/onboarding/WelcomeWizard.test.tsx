@@ -10,7 +10,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 describe('WelcomeWizard', () => {
   it('renders the select button', () => {
     render(<WelcomeWizard onComplete={() => { }} />);
-    expect(screen.getByText(/Select Super Mario World ROM/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select Clean SMW ROM/i)).toBeInTheDocument();
   });
 });
 
