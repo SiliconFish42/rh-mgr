@@ -2,7 +2,9 @@ use tauri::command;
 use crate::state::AppState;
 use crate::config::Config;
 use std::process::Command;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
 
 #[command]
 pub fn launch_hack(
@@ -13,6 +15,8 @@ pub fn launch_hack(
     let config = Config::load(&conn).map_err(|e| e.to_string())?;
     
     let emulator_path = config.emulator_path.ok_or_else(|| "Emulator path not configured".to_string())?;
+    
+    #[cfg(target_os = "macos")]
     let emulator_path_buf = Path::new(&emulator_path);
     
     // Check if ROM file exists
@@ -97,6 +101,7 @@ pub fn launch_hack(
     
     // For regular executables or other platforms
     let emulator_path_lower = emulator_path.to_lowercase();
+    #[cfg(target_os = "macos")]
     let is_retroarch = emulator_path_lower.contains("retroarch");
     
     // Build command
