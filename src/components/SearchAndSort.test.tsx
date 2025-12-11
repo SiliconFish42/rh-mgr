@@ -32,7 +32,6 @@ describe('SearchAndSort', () => {
             />
         );
 
-        const select = screen.getByDisplayValue('Date'); // Displays text content of option
         expect(screen.getByRole('combobox')).toHaveValue('date');
 
         fireEvent.change(screen.getByRole('combobox'), { target: { value: 'rating' } });
@@ -72,7 +71,6 @@ describe('SearchAndSort', () => {
 
         // Need to find by icon or some other means, here assuming structure
         // List icon button usually 2nd in toggle group
-        const listButtons = screen.getAllByRole('button');
         // We expect direction toggle + 2 view mode buttons = 3 buttons if sort direction enabled (it's not here by default if props missing, wait provided props has no direction chang)
         // Actually our test above provided onSortDirectionChange, this one didn't.
         // So distinct buttons for grid/list. 
