@@ -1,11 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { HackGrid } from './HackGrid';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 const mockHacks = [
   { id: 1, name: 'Hack 1', difficulty: 'Easy' },
   { id: 2, name: 'Hack 2', difficulty: 'Hard' },
 ];
+
+// Mock useCompletionSummary to avoid Tauri invoke calls
+vi.mock('../../hooks/useCompletions', () => ({
+  useCompletionSummary: vi.fn().mockReturnValue({ summary: null, loading: false }),
+}));
 
 describe('HackGrid', () => {
   it('renders empty state when no hacks', () => {
