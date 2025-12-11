@@ -122,7 +122,7 @@ pub fn get_hacks_impl(
     }
     if let Some(author) = &filters.author {
         where_clauses.push("authors LIKE ?".to_string());
-        params_vec.push(Box::new(format!("%\"name\":\"{}\"%", author)));
+        params_vec.push(Box::new(format!("%\"{}\"%", author)));
     }
     if let Some(min_rating) = filters.min_rating {
         where_clauses.push("rating >= ?".to_string());
