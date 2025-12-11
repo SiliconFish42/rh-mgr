@@ -100,6 +100,7 @@ pub fn launch_hack(
     }
     
     // For regular executables or other platforms
+    #[cfg(target_os = "macos")]
     let emulator_path_lower = emulator_path.to_lowercase();
     #[cfg(target_os = "macos")]
     let is_retroarch = emulator_path_lower.contains("retroarch");

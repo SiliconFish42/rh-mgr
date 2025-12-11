@@ -129,7 +129,7 @@ mod tests {
         let result = Patcher::extract_patch_from_zip(&zip_path, &output_dir);
         assert!(result.is_ok());
         
-        let extracted_path = result.unwrap();
+        let (extracted_path, _readme) = result.unwrap();
         assert!(extracted_path.exists());
         assert_eq!(extracted_path.file_name().unwrap(), "test.bps");
     }
