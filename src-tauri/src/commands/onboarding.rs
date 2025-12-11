@@ -10,6 +10,7 @@ pub fn validate_clean_rom(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<bool, String> {
+    let _ = state; // Suppress unused warning since we removed the saving logic
     let path_buf = PathBuf::from(&path);
     
     // Check if file exists
@@ -34,17 +35,6 @@ pub fn validate_clean_rom(
             file_hash
         ));
     }
-    
-    // Save the ROM path to config instead of copying
-    let conn = state.db.get().map_err(|e| e.to_string())?;
-    let mut config = Config::load(&conn).unwrap_or_else(|_| Config {
-        emulator_path: None,
-        output_directory: None,
-        clean_rom_path: None,
-    });
-    
-    config.clean_rom_path = Some(path_buf.to_string_lossy().to_string());
-    config.save(&conn).map_err(|e| format!("Failed to save ROM path to config: {}", e))?;
     
     Ok(true)
 }
