@@ -80,49 +80,6 @@ fn migrate_db(conn: &Connection) -> Result<()> {
     if needs_migration {
         // Recreate table with all columns
         conn.execute("BEGIN TRANSACTION", [])?;
-        
-        // Create new table with correct schema
-        conn.execute(
-            "CREATE TABLE hacks_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                file_path TEXT,
-                clean_rom_path TEXT,
-                api_id TEXT UNIQUE,
-                last_played DATETIME,
-                authors TEXT,
-                release_date INTEGER,
-                description TEXT,
-                images TEXT,
-                tags TEXT,
-                rating REAL,
-                downloads INTEGER,
-                difficulty TEXT,
-                type TEXT,
-                download_url TEXT,
-                readme TEXT
-            )",
-            [],
-        )?;
-        
-        // Copy data from old table
-        // Handle potentially missing columns in source table by checking pragma_table_info or just try/catch wrappers usually
-        // But since we control the schema evolution, we can be smart.
-        // Simplest safe way in sqlite for potentially missing source columns is to list common ones.
-        // Since we are upgrading, we can just grab what we know exists.
-        // However, standard SQL doesn't easily "select if exists".
-        // RUSQLITE doesn't make dynamic migration queries easy without reflection.
-        // Given the simplistic nature here, we can rely on the fact that if we are here, we might be missing columns.
-        
-        // Actually, the safest incremental migration is typically ALTER TABLE ADD COLUMN.
-        // The reconstruction is only strictly needed for removing NOT NULL or changing types.
-        // If we only ever ADD columns (which we are mostly doing now), we can stick to the ALTER TABLE approach for new fields
-        // and only do the heavy lift for the file_path change if it wasn't done yet.
-        
-        // Let's refine the strategy:
-        // The "needs_migration" check for file_path TEXT NOT NULL is the only one needing table recreation.
-        // If that's NOT the case, we can just use ALTER TABLE for everything else.
-        
         let should_recreate = if let Ok(sql) = conn.query_row::<String, _, _>(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='hacks'",
             [],
@@ -134,7 +91,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         };
 
         if should_recreate {
-             // Create new table with correct schema including readme
+            // Create new table with correct schema including readme
             conn.execute(
                 "CREATE TABLE hacks_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -158,10 +115,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                 [],
             )?;
             
-            // This copy might fail if source lacks columns.
-            // But if we are in the "recreate" branch, it means we are coming from the VERY OLD schema
-            // which likely only had basic fields.
-            // We should select only the guaranteed fields from the old schema.
+            // Copy data from old table. We select only the columns guaranteed to exist in the old schema.
             conn.execute(
                 "INSERT INTO hacks_new (id, name, file_path, clean_rom_path, api_id, last_played)
                  SELECT id, name, 
@@ -171,15 +125,16 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                 [],
             )?;
             
-            conn.execute("DROP TABLE hacks", [])?;
-            conn.execute("ALTER TABLE hacks_new RENAME TO hacks", [])?;
-            conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_hacks_api_id ON hacks(api_id)",
-                [],
-            )?;
+            // Drop old table and rename new one
+             conn.execute("DROP TABLE hacks", [])?;
+             conn.execute("ALTER TABLE hacks_new RENAME TO hacks", [])?;
+             conn.execute(
+                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_hacks_api_id ON hacks(api_id)",
+                 [],
+             )?;
         }
         
-        // Apply incremental updates for everything else (idempotent)
+        // Execute incremental updates (safe to run even if table was recreated).
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN authors TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN release_date INTEGER", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN description TEXT", []);
@@ -192,9 +147,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN download_url TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN readme TEXT", []);
         
-        if should_recreate {
-            conn.execute("COMMIT", [])?;
-        }
+        conn.execute("COMMIT", [])?;
     } else {
         // Just add missing columns if they don't exist (for incremental updates)
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN authors TEXT", []);
