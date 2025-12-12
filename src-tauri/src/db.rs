@@ -207,4 +207,92 @@ mod tests {
         let exists = stmt.exists([]).unwrap();
         assert!(exists, "config table should exist");
     }
+
+    #[test]
+    fn test_migration_adds_missing_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        // 1. Create a "partial" table (simulate older version without new fields like 'authors')
+        conn.execute(
+            "CREATE TABLE hacks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                file_path TEXT,
+                clean_rom_path TEXT,
+                api_id TEXT UNIQUE,
+                last_played DATETIME
+            )",
+            [],
+        ).unwrap();
+
+        // 2. Run init_db which triggers migration
+        init_db(&conn).expect("Database initialization failed");
+
+        // 3. Verify new columns exist
+        let mut stmt = conn.prepare("PRAGMA table_info(hacks)").unwrap();
+        let rows = stmt.query_map([], |row| {
+             let name: String = row.get(1)?;
+             Ok(name)
+        }).unwrap();
+
+        let columns: Vec<String> = rows.map(|r| r.unwrap()).collect();
+        assert!(columns.contains(&"authors".to_string()), "authors column should be added");
+        assert!(columns.contains(&"readme".to_string()), "readme column should be added");
+        assert!(columns.contains(&"difficulty".to_string()), "difficulty column should be added");
+    }
+
+    #[test]
+    fn test_migration_from_strict_schema_preserves_data() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        // 1. Create table with OLD "strict" schema that forces recreation
+        conn.execute(
+            "CREATE TABLE hacks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                clean_rom_path TEXT,
+                api_id TEXT UNIQUE,
+                last_played DATETIME
+            )",
+            [],
+        ).unwrap();
+
+        // 2. Insert some data
+        conn.execute(
+            "INSERT INTO hacks (name, file_path, clean_rom_path, api_id) 
+             VALUES (?1, ?2, ?3, ?4)",
+            ["Test Hack", "/path/to/rom.smc", "/path/to/clean.smc", "smwc_123"],
+        ).unwrap();
+
+        // 3. Run init_db which should trigger the recreation migration path
+        init_db(&conn).expect("Database initialization failed");
+
+        // 4. Verify data is preserved
+        let name: String = conn.query_row(
+            "SELECT name FROM hacks WHERE api_id = ?1",
+            ["smwc_123"],
+            |row| row.get(0),
+        ).expect("Data should be preserved");
+        
+        assert_eq!(name, "Test Hack");
+
+        // 5. Verify detailed schema changes (e.g. new columns added)
+        let mut stmt = conn.prepare("PRAGMA table_info(hacks)").unwrap();
+        let rows = stmt.query_map([], |row| {
+             let name: String = row.get(1)?;
+             Ok(name)
+        }).unwrap();
+        let columns: Vec<String> = rows.map(|r| r.unwrap()).collect();
+        
+        assert!(columns.contains(&"readme".to_string()), "New columns should be present after recreation");
+        
+        // 6. Verify `file_path` is now nullable (by attempting to insert NULL)
+        // Note: New schema defines it as `file_path TEXT` which is nullable.
+        let result = conn.execute(
+            "INSERT INTO hacks (name, file_path) VALUES (?1, NULL)",
+            ["Null Path Hack"],
+        );
+        assert!(result.is_ok(), "Should be able to insert NULL file_path now");
+    }
 }
