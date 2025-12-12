@@ -13,14 +13,20 @@ The application needs a "clean" Super Mario World ROM to create patched hacks.
 1. Click **Select ROM File**.
 2. Navigate to your legal copy of the Super Mario World (US) ROM.
    - **Note**: It must be **headerless**. The app will verify the MD5 hash (`cdd3c8c37322978ca8669b34bc89c804`).
-3. If valid, you'll see a green checkmark.
+3. Click **Next**
 
-### 2. Configure Paths
+### 2. Configure Output Path
 
-You can configure these now or later in settings:
+1. Click **Select Output Path**.
+2. Navigate to the directory where you want patched ROMs to be saved.
+3. Click **Next**
 
-- **Emulator Path**: Point this to your SNES emulator executable.
-- **Output Directory**: This is where patched ROMs will be saved. By default, it's in your Documents folder.
+### 3. Configure Emulator Path (Optional)
+
+1. Click **Select Emulator Path**.
+2. Navigate to the directory where your SNES emulator executable is located.
+3. Click **Next**
+
 
 ## Next Steps
 

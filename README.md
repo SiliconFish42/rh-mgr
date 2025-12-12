@@ -15,6 +15,8 @@ Detailed documentation is available at **[https://SiliconFish42.github.io/rh-mgr
 
 ![Discover View](docs/screenshots/discover.png)
 
+![Detail View](docs/screenshots/hack_details.png)
+
 ## Quick Start
 
 ### Installation
