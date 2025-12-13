@@ -19,7 +19,6 @@ function App() {
 
   async function handleSync() {
     await syncDatabase();
-    // Views will reload their filters automatically when needed
   }
 
   if (hasCleanRom === null) {
@@ -44,8 +43,8 @@ function App() {
 
   return (
     <>
-      <RootLayout 
-        currentView={currentView} 
+      <RootLayout
+        currentView={currentView}
         onViewChange={setCurrentView}
         syncButton={
           <Button
