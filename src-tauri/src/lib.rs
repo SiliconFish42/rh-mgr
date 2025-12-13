@@ -9,7 +9,6 @@ pub mod config;
 use state::AppState;
 use tauri::Manager;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -41,17 +40,14 @@ pub fn run() {
             commands::completions::get_completion_summary,
         ])
         .setup(|app| {
-            // Get the app data directory and create database there
             let app_data_dir = app.path().app_data_dir()
                 .map_err(|e| format!("Failed to get app data directory: {}", e))?;
             
-            // Create app data directory if it doesn't exist
             if !app_data_dir.exists() {
                 std::fs::create_dir_all(&app_data_dir)
                     .map_err(|e| format!("Failed to create app data directory: {}", e))?;
             }
             
-            // Use absolute path for database in app data directory
             let db_path = app_data_dir.join("rh_mgr.db");
             let db_path_str = db_path.to_str()
                 .ok_or_else(|| "Failed to convert database path to string".to_string())?;

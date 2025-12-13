@@ -59,19 +59,17 @@ pub fn init_db(conn: &Connection) -> Result<()> {
 }
 
 fn migrate_db(conn: &Connection) -> Result<()> {
-    // Add UNIQUE constraint to api_id if it doesn't exist
     let _ = conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_hacks_api_id ON hacks(api_id)",
         [],
     );
     
-    // Check if we need to migrate the schema
     let needs_migration = if let Ok(sql) = conn.query_row::<String, _, _>(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='hacks'",
         [],
         |row| row.get(0),
     ) {
-        // Check if old schema (missing new columns or has NOT NULL constraint)
+        // Migration needed if the schema is old (missing columns or has strict constraints).
         sql.contains("file_path TEXT NOT NULL") || !sql.contains("authors TEXT") || !sql.contains("difficulty TEXT") || !sql.contains("download_url TEXT") || !sql.contains("readme TEXT")
     } else {
         false
@@ -91,7 +89,6 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         };
 
         if should_recreate {
-            // Create new table with correct schema including readme
             conn.execute(
                 "CREATE TABLE hacks_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +112,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                 [],
             )?;
             
-            // Copy data from old table. We select only the columns guaranteed to exist in the old schema.
+            // Migrate data to new schema.
             conn.execute(
                 "INSERT INTO hacks_new (id, name, file_path, clean_rom_path, api_id, last_played)
                  SELECT id, name, 
@@ -125,7 +122,6 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                 [],
             )?;
             
-            // Drop old table and rename new one
              conn.execute("DROP TABLE hacks", [])?;
              conn.execute("ALTER TABLE hacks_new RENAME TO hacks", [])?;
              conn.execute(
@@ -134,7 +130,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
              )?;
         }
         
-        // Execute incremental updates (safe to run even if table was recreated).
+        // Execute incremental updates.
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN authors TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN release_date INTEGER", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN description TEXT", []);
@@ -149,7 +145,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         
         conn.execute("COMMIT", [])?;
     } else {
-        // Just add missing columns if they don't exist (for incremental updates)
+        // Add missing columns if they don't exist.
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN authors TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN release_date INTEGER", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN description TEXT", []);
@@ -163,7 +159,6 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN readme TEXT", []);
     }
     
-    // Ensure hack_completions table exists (for existing databases)
     let _ = conn.execute(
         "CREATE TABLE IF NOT EXISTS hack_completions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
