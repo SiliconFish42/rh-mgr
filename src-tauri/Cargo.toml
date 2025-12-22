@@ -32,7 +32,7 @@ md5 = "0.8.0"
 crc32fast = "1.5.0"
 reqwest = { version = "0.12.26", features = ["json"] }
 flips = "0.2.1"
-zip = "6.0.0"
+zip = "7.0.0"
 tauri-plugin-dialog = "2.4.2"
 
 [dev-dependencies]
