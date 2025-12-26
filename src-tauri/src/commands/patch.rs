@@ -126,10 +126,51 @@ pub async fn patch_rom(
     Patcher::patch_bps(&clean_rom_path, &extracted_patch, &output_path)
         .map_err(|e| format!("Failed to apply patch: {}", e))?;
     
+    // Calculate Checksum for Passive Tracking
+    let rom_content = fs::read(&output_path).map_err(|e| format!("Failed to read patched ROM: {}", e))?;
+    let mut checksum_hex = String::new();
+    
+    // Try LoROM (Header at 0x7FC0)
+    // Checksum at +0x1C (0x1E actually? Header is 21 bytes? No, standard header is 64 bytes usually reserved area)
+    // SNES Header:
+    // Title: 21 bytes
+    // Map Mode: 1 byte
+    // Type: 1 byte
+    // Size: 1 byte
+    // SRAM: 1 byte
+    // Country: 1 byte
+    // License: 1 byte
+    // Version: 1 byte
+    // Checksum Comp: 2 bytes
+    // Checksum: 2 bytes
+    // Total offset to checksum: 21+1+1+1+1+1+1+1 = 28 bytes? No.
+    // 0x7FC0 + 0x1C = 0x7FDC (Checksum Complement)
+    // 0x7FC0 + 0x1E = 0x7FDE (Checksum)
+    
+    // Helper to get checksum from offset
+    let get_checksum = |offset: usize| -> Option<u16> {
+        if rom_content.len() < offset + 0x20 { return None; }
+        let comp = ((rom_content[offset + 0x1D] as u16) << 8) | (rom_content[offset + 0x1C] as u16);
+        let sum = ((rom_content[offset + 0x1F] as u16) << 8) | (rom_content[offset + 0x1E] as u16);
+        if (comp ^ sum) == 0xFFFF {
+            Some(sum)
+        } else {
+            None
+        }
+    };
+    
+    if let Some(sum) = get_checksum(0x7FC0) {
+        checksum_hex = format!("{:04X}", sum);
+    } else if let Some(sum) = get_checksum(0xFFC0) {
+        checksum_hex = format!("{:04X}", sum);
+    } 
+    // If we can't find a valid checksum, we might leave it empty or try checking for a specific SMW header location?
+    // Most SMW hacks are LoROM.
+    
     let output_path_str = output_path.to_string_lossy().to_string();
     conn.execute(
-        "UPDATE hacks SET file_path = ?1, readme = ?2 WHERE api_id = ?3",
-        rusqlite::params![output_path_str, readme_content, api_id],
+        "UPDATE hacks SET file_path = ?1, readme = ?2, rom_checksum = ?3 WHERE api_id = ?4",
+        rusqlite::params![output_path_str, readme_content, checksum_hex, api_id],
 
     ).map_err(|e| format!("Failed to update hack in database: {}", e))?;
     

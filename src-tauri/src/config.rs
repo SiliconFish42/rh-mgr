@@ -6,6 +6,9 @@ pub struct Config {
     pub emulator_path: Option<String>,
     pub output_directory: Option<String>,
     pub clean_rom_path: Option<String>,
+    pub enable_debug_logging: Option<bool>,
+    pub enable_auto_tracking: Option<bool>,
+    pub additional_args: Option<String>,
 }
 
 impl Config {
@@ -14,6 +17,9 @@ impl Config {
             emulator_path: None,
             output_directory: None,
             clean_rom_path: None,
+            enable_debug_logging: None,
+            enable_auto_tracking: None,
+            additional_args: None,
         };
         
         let mut stmt = conn.prepare("SELECT key, value FROM config")?;
@@ -27,6 +33,9 @@ impl Config {
                 "emulator_path" => config.emulator_path = Some(value),
                 "output_directory" => config.output_directory = Some(value),
                 "clean_rom_path" => config.clean_rom_path = Some(value),
+                "enable_debug_logging" => config.enable_debug_logging = Some(value == "true"),
+                "enable_auto_tracking" => config.enable_auto_tracking = Some(value == "true"),
+                "additional_args" => config.additional_args = Some(value),
                 _ => {}
             }
         }
@@ -73,6 +82,45 @@ impl Config {
                 conn.execute("DELETE FROM config WHERE key = ?1", params!["clean_rom_path"])?;
             }
         }
+
+        // Save or delete enable_debug_logging
+        match &self.enable_debug_logging {
+            Some(enable) => {
+                conn.execute(
+                    "INSERT OR REPLACE INTO config (key, value) VALUES (?1, ?2)",
+                    params!["enable_debug_logging", enable.to_string()],
+                )?;
+            }
+            None => {
+                conn.execute("DELETE FROM config WHERE key = ?1", params!["enable_debug_logging"])?;
+            }
+        }
+
+        // Save or delete enable_auto_tracking
+        match &self.enable_auto_tracking {
+            Some(enable) => {
+                conn.execute(
+                    "INSERT OR REPLACE INTO config (key, value) VALUES (?1, ?2)",
+                    params!["enable_auto_tracking", enable.to_string()],
+                )?;
+            }
+            None => {
+                conn.execute("DELETE FROM config WHERE key = ?1", params!["enable_auto_tracking"])?;
+            }
+        }
+
+        // Save or delete additional_args
+        match &self.additional_args {
+            Some(args) => {
+                conn.execute(
+                    "INSERT OR REPLACE INTO config (key, value) VALUES (?1, ?2)",
+                    params!["additional_args", args],
+                )?;
+            }
+            None => {
+                conn.execute("DELETE FROM config WHERE key = ?1", params!["additional_args"])?;
+            }
+        }
         
         Ok(())
     }
@@ -93,6 +141,7 @@ mod tests {
             emulator_path: Some("/usr/bin/emulator".to_string()),
             output_directory: Some("/tmp/output".to_string()),
             clean_rom_path: None,
+            enable_debug_logging: Some(true),
         };
         
         config.save(&conn).unwrap();
@@ -100,6 +149,7 @@ mod tests {
         let loaded = Config::load(&conn).unwrap();
         assert_eq!(loaded.emulator_path, config.emulator_path);
         assert_eq!(loaded.output_directory, config.output_directory);
+        assert_eq!(loaded.enable_debug_logging, config.enable_debug_logging);
     }
 }
 

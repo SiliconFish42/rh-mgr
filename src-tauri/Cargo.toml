@@ -5,6 +5,7 @@ description = "ROM Hack Manager - A desktop application for managing Super Mario
 authors = ["SiliconFish"]
 edition = "2021"
 license = "MIT"
+default-run = "rom-hack-manager"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -34,6 +35,11 @@ reqwest = { version = "0.12.26", features = ["json"] }
 flips = "0.2.1"
 zip = "7.0.0"
 tauri-plugin-dialog = "2.4.2"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+futures-util = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+simplelog = "0.12"
 
 [dev-dependencies]
 mockall = "0.14.0"

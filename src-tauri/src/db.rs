@@ -19,7 +19,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
                 difficulty TEXT,
                 type TEXT,
                 download_url TEXT,
-                readme TEXT
+                readme TEXT,
+                rom_checksum TEXT
             )",
             [],
         )?;
@@ -70,7 +71,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         |row| row.get(0),
     ) {
         // Migration needed if the schema is old (missing columns or has strict constraints).
-        sql.contains("file_path TEXT NOT NULL") || !sql.contains("authors TEXT") || !sql.contains("difficulty TEXT") || !sql.contains("download_url TEXT") || !sql.contains("readme TEXT")
+        sql.contains("file_path TEXT NOT NULL") || !sql.contains("authors TEXT") || !sql.contains("difficulty TEXT") || !sql.contains("download_url TEXT") || !sql.contains("readme TEXT") || !sql.contains("rom_checksum TEXT")
     } else {
         false
     };
@@ -107,7 +108,8 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                     difficulty TEXT,
                     type TEXT,
                     download_url TEXT,
-                    readme TEXT
+                    readme TEXT,
+                    rom_checksum TEXT
                 )",
                 [],
             )?;
@@ -142,6 +144,7 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN type TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN download_url TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN readme TEXT", []);
+        let _ = conn.execute("ALTER TABLE hacks ADD COLUMN rom_checksum TEXT", []);
         
         conn.execute("COMMIT", [])?;
     } else {
@@ -178,6 +181,33 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_hack_completions_hack_id ON hack_completions(hack_id)",
         [],
     );
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS play_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hack_id INTEGER NOT NULL,
+            start_time DATETIME NOT NULL,
+            end_time DATETIME,
+            duration_seconds INTEGER DEFAULT 0,
+            save_slot INTEGER,
+            exit_count INTEGER DEFAULT 0,
+            FOREIGN KEY (hack_id) REFERENCES hacks(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS level_timings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hack_id INTEGER NOT NULL,
+            level_id INTEGER NOT NULL,
+            duration_seconds INTEGER DEFAULT 0,
+            visit_count INTEGER DEFAULT 0,
+            FOREIGN KEY (hack_id) REFERENCES hacks(id) ON DELETE CASCADE,
+            UNIQUE(hack_id, level_id)
+        )",
+        [],
+    )?;
     
     Ok(())
 }

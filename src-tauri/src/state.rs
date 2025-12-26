@@ -1,8 +1,11 @@
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 
+use crate::tracking::TrackingService;
+
 pub struct AppState {
     pub db: Pool<SqliteConnectionManager>,
+    pub tracking: TrackingService,
 }
 
 impl AppState {
@@ -19,7 +22,13 @@ impl AppState {
         
         crate::db::init_db(&conn).expect("Failed to init DB");
 
-        AppState { db: pool }
+        let tracking = TrackingService::new(pool.clone());
+        let tracking_clone = tracking.clone();
+        tauri::async_runtime::spawn(async move {
+            tracking_clone.start_background_task().await;
+        });
+
+        AppState { db: pool, tracking }
     }
 }
 
