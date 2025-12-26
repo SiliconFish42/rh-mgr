@@ -142,6 +142,8 @@ mod tests {
             output_directory: Some("/tmp/output".to_string()),
             clean_rom_path: None,
             enable_debug_logging: Some(true),
+            enable_auto_tracking: Some(true),
+            additional_args: Some("--arg1 --arg2".to_string()),
         };
         
         config.save(&conn).unwrap();
