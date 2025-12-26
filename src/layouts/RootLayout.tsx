@@ -1,4 +1,5 @@
 import React from 'react';
+import { TrackingStatus } from '../components/TrackingStatus';
 
 interface RootLayoutProps {
   children: React.ReactNode;
@@ -33,21 +34,19 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
             <h1 className="text-xl font-semibold">ROM Hack Manager</h1>
             <nav className="flex gap-1 ml-8">
               <button
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  currentView === "discover"
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "discover"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }`}
+                  }`}
                 onClick={() => onViewChange?.("discover")}
               >
                 Discover
               </button>
               <button
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  currentView === "library"
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "library"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }`}
+                  }`}
                 onClick={() => onViewChange?.("library")}
               >
                 My Library
@@ -61,6 +60,7 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
             </nav>
           </div>
           <div className="flex items-center gap-4">
+            <TrackingStatus />
             {syncButton}
             {lastSyncTime && (
               <span className="text-sm text-muted-foreground">Last updated: {lastSyncTime}</span>

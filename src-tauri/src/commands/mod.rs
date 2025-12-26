@@ -4,4 +4,5 @@ pub mod library;
 pub mod launcher;
 pub mod sync;
 pub mod completions;
+pub mod logs;
 

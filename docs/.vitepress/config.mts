@@ -23,6 +23,7 @@ export default defineConfig({
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Library Management', link: '/guide/library' },
           { text: 'Discovery & Patching', link: '/guide/discovery' },
+          { text: 'Auto-Tracking', link: '/guide/tracking' },
           { text: 'Troubleshooting', link: '/guide/troubleshooting' }
         ]
       },

@@ -5,6 +5,7 @@ pub mod api;
 pub mod commands;
 pub mod patching;
 pub mod config;
+pub mod tracking;
 
 use state::AppState;
 use tauri::Manager;
@@ -38,6 +39,12 @@ pub fn run() {
             commands::completions::update_completion,
             commands::completions::delete_completion,
             commands::completions::get_completion_summary,
+            crate::tracking::commands::get_tracking_status,
+            crate::tracking::commands::get_hack_stats,
+            crate::tracking::commands::clear_hack_stats,
+            crate::tracking::commands::clear_all_tracking_data,
+            commands::logs::get_log_content,
+            commands::logs::clear_log,
         ])
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()
@@ -51,10 +58,31 @@ pub fn run() {
             let db_path = app_data_dir.join("rh_mgr.db");
             let db_path_str = db_path.to_str()
                 .ok_or_else(|| "Failed to convert database path to string".to_string())?;
+
+            // Initialize DB logic to load config
+            // Note: We create a connection just to read the config for logging init
+            // This is separate from the AppState connection pool
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                if let Ok(config) = crate::config::Config::load(&conn) {
+                    if config.enable_debug_logging.unwrap_or(false) {
+                        use simplelog::*;
+                        use std::fs::File;
+                        
+                        let log_path = app_data_dir.join("rh-mgr.log");
+                        let _ = WriteLogger::init(
+                            LevelFilter::Debug,
+                            Config::default(),
+                            File::create(log_path).unwrap()
+                        );
+                        log::info!("Debug logging enabled");
+                    }
+                }
+            }
             
             app.manage(AppState::new(db_path_str));
             Ok(())
         })
+
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

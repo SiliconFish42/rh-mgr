@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { invoke } from '@tauri-apps/api/core';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Star, Play, Wrench, Trash2, Check, Plus, Edit2, X } from "lucide-react";
 import { useHackCompletions } from "@/hooks/useCompletions";
@@ -22,6 +23,17 @@ interface Hack {
   readme?: string | null;
 }
 
+interface LevelTiming {
+  level_id: number;
+  seconds: number;
+}
+
+interface HackStats {
+  total_play_time_seconds: number;
+  session_count: number;
+  level_timings: LevelTiming[];
+}
+
 interface HackDetailsProps {
   hack: Hack;
   onClose: () => void;
@@ -38,6 +50,21 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [activeTab, setActiveTab] = useState<'description' | 'readme'>('description');
+  const [stats, setStats] = useState<HackStats | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await invoke<HackStats>('get_hack_stats', { hackId: hack.id });
+        setStats(res);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
+  }, [hack.id]);
 
   // Completions
   const { completions, loading: completionsLoading, createCompletion, updateCompletion, deleteCompletion } = useHackCompletions(hack.id);
@@ -269,6 +296,23 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
                   Remove
                 </Button>
               )}
+              {stats && stats.session_count > 0 && (
+                <Button
+                  onClick={() => {
+                    const confirmed = window.confirm("Clear all tracking data for this hack? This cannot be undone.");
+                    if (!confirmed) return;
+
+                    invoke("clear_hack_stats", { hackId: hack.id })
+                      .then(() => setStats(null))
+                      .catch((e) => alert(`Error: ${e}`));
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                >
+                  Clear Tracking Data
+                </Button>
+              )}
             </div>
 
             {/* Screenshots */}
@@ -446,6 +490,35 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
                 )}
               </div>
             )}
+
+            {/* Playtime Stats */}
+            <div className="space-y-4 border-t border-border pt-6">
+              <h3 className="text-lg font-semibold">Stats</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-secondary rounded-lg border border-border text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Total Play Time</div>
+                  <div className="text-2xl font-bold">{formatPlayTime(stats?.total_play_time_seconds)}</div>
+                </div>
+                <div className="p-4 bg-secondary rounded-lg border border-border text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Sessions</div>
+                  <div className="text-2xl font-bold">{stats?.session_count || 0}</div>
+                </div>
+              </div>
+
+              {stats?.level_timings && stats.level_timings.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold mb-2">Level Breakdown</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm max-h-40 overflow-y-scroll pr-2">
+                    {stats.level_timings.map(l => (
+                      <div key={l.level_id} className="flex justify-between p-2 bg-secondary rounded border border-border">
+                        <span>Level {l.level_id}</span>
+                        <span className="font-mono">{formatPlayTime(l.seconds)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Completions Section */}
             <div className="space-y-4 border-t border-border pt-6">
