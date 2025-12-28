@@ -20,6 +20,7 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
+          append_body: false
 
   build-tauri:
     needs: create-release
@@ -67,3 +68,4 @@ jobs:
         with:
           includeUpdaterJson: false
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: ${{ matrix.args }}
