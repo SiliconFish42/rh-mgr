@@ -99,6 +99,9 @@ export function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
         emulatorPath: emulatorPath || "",
         outputDirectory: outputDir || "",
         cleanRomPath: cleanRomPath,
+        enableDebugLogging: false,
+        enableAutoTracking: false,
+        additionalArgs: "",
       });
 
       setStatus("Starting background sync...");
