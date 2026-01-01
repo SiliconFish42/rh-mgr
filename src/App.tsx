@@ -8,14 +8,13 @@ import { SettingsView } from "@/features/settings/SettingsView";
 import { Button } from "@/components/ui/button";
 import { useCleanRom } from "@/hooks/useCleanRom";
 import { useDatabaseSync } from "@/hooks/useDatabaseSync";
-import { SyncProgress } from "@/components/SyncProgress";
 
 type View = "library" | "discover" | "settings";
 
 function App() {
   const [currentView, setCurrentView] = useState<View>("library");
   const { hasCleanRom, checkCleanRom } = useCleanRom();
-  const { syncing, lastSyncTime, syncDatabase, syncProgress, clearProgress } = useDatabaseSync();
+  const { syncing, lastSyncTime, syncDatabase, syncProgress } = useDatabaseSync();
 
   async function handleSync() {
     await syncDatabase();
@@ -56,20 +55,12 @@ function App() {
           </Button>
         }
         lastSyncTime={lastSyncTime}
+        syncProgress={syncProgress}
       >
         {currentView === "library" && <LibraryView />}
         {currentView === "discover" && <DiscoverView />}
         {currentView === "settings" && <SettingsView />}
       </RootLayout>
-      {syncProgress && (
-        <SyncProgress
-          stage={syncProgress.stage}
-          message={syncProgress.message}
-          progress={syncProgress.progress}
-          total={syncProgress.total}
-          onClose={syncProgress.stage === "complete" ? clearProgress : undefined}
-        />
-      )}
     </>
   );
 }

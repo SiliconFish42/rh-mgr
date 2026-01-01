@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrackingStatus } from '../components/TrackingStatus';
+import { SyncProgress } from '../hooks/useDatabaseSync';
 
 interface RootLayoutProps {
   children: React.ReactNode;
@@ -8,9 +9,18 @@ interface RootLayoutProps {
   showSidebar?: boolean;
   syncButton?: React.ReactNode;
   lastSyncTime?: string;
+  syncProgress?: SyncProgress | null;
 }
 
-export function RootLayout({ children, currentView = "library", onViewChange, showSidebar = true, syncButton, lastSyncTime }: RootLayoutProps) {
+export function RootLayout({
+  children,
+  currentView = "library",
+  onViewChange,
+  showSidebar = true,
+  syncButton,
+  lastSyncTime,
+  syncProgress
+}: RootLayoutProps) {
   // For welcome wizard, don't show sidebar
   if (!showSidebar) {
     return (
@@ -21,6 +31,38 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
       </div>
     );
   }
+
+  // Helper to render sync status
+  const renderSyncStatus = () => {
+    if (syncProgress) {
+      const { message, progress, total, stage } = syncProgress;
+      const percentage = total > 0 ? Math.round((progress / total) * 100) : 0;
+
+      return (
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-col items-end">
+            <span className="font-medium">{message}</span>
+            {total > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {progress} / {total} ({percentage}%)
+              </span>
+            )}
+          </div>
+          {stage !== 'complete' && (
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
+      );
+    }
+
+    if (lastSyncTime) {
+      return (
+        <span className="text-sm text-muted-foreground">Last updated: {lastSyncTime}</span>
+      );
+    }
+
+    return null;
+  };
 
   // For discover/library pages, show top header with tabs
   return (
@@ -35,8 +77,8 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
             <nav className="flex gap-1 ml-8">
               <button
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "discover"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
                 onClick={() => onViewChange?.("discover")}
               >
@@ -44,8 +86,8 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
               </button>
               <button
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentView === "library"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
                 onClick={() => onViewChange?.("library")}
               >
@@ -62,9 +104,7 @@ export function RootLayout({ children, currentView = "library", onViewChange, sh
           <div className="flex items-center gap-4">
             <TrackingStatus />
             {syncButton}
-            {lastSyncTime && (
-              <span className="text-sm text-muted-foreground">Last updated: {lastSyncTime}</span>
-            )}
+            {renderSyncStatus()}
           </div>
         </div>
       </header>
