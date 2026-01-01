@@ -12,6 +12,7 @@ interface HackFilters {
   hackTypes?: string[]; // Array of hack types for AND filtering
   author?: string;
   minRating?: string;
+  status?: string;
   page?: number;
   limit?: number; // Custom limit for loading all hacks
 }
@@ -37,6 +38,7 @@ export function useHacks(filters: HackFilters, enabled: boolean = true) {
     filters.hackTypes,
     filters.author,
     filters.minRating,
+    filters.status,
     filters.page,
     filters.limit,
   ]);
@@ -63,6 +65,7 @@ export function useHacks(filters: HackFilters, enabled: boolean = true) {
           hack_types: filters.hackTypes && filters.hackTypes.length > 0 ? filters.hackTypes : undefined,
           author: filters.author || undefined,
           min_rating: filters.minRating ? parseFloat(filters.minRating) : undefined,
+          status: filters.status || undefined,
         }
       }) as any[];
       setHacks(result);

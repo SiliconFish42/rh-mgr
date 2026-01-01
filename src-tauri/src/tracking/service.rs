@@ -15,6 +15,7 @@ pub struct TrackingService {
     active_hack_id: Arc<Mutex<Option<i64>>>,
     current_session_id: Arc<Mutex<Option<i64>>>,
     last_fingerprint_time: Arc<Mutex<Option<std::time::Instant>>>,
+    manual_hack_id: Arc<Mutex<Option<i64>>>,
 }
 
 impl TrackingService {
@@ -26,6 +27,7 @@ impl TrackingService {
             active_hack_id: Arc::new(Mutex::new(None)),
             current_session_id: Arc::new(Mutex::new(None)),
             last_fingerprint_time: Arc::new(Mutex::new(None)),
+            manual_hack_id: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -39,6 +41,19 @@ impl TrackingService {
         *guard = None;
     }
 
+    pub async fn start_manual_tracking(&self, hack_id: i64) {
+        let mut manual_guard = self.manual_hack_id.lock().await;
+        *manual_guard = Some(hack_id);
+    }
+
+    pub async fn stop_manual_tracking(&self) {
+        let mut manual_guard = self.manual_hack_id.lock().await;
+        *manual_guard = None;
+        // Also ensure current session is closed immediately
+        let mut sess_guard = self.current_session_id.lock().await;
+        *sess_guard = None;
+    }
+
     pub async fn start_background_task(&self) {
         let client_state = self.client.clone();
         let analyzer = self.analyzer.clone();
@@ -46,10 +61,67 @@ impl TrackingService {
         let active_hack = self.active_hack_id.clone();
         let session_id = self.current_session_id.clone();
         let last_fingerprint = self.last_fingerprint_time.clone();
+        let manual_hack = self.manual_hack_id.clone();
 
         tokio::spawn(async move {
             let mut rom_block_until: Option<std::time::Instant> = None;
             loop {
+                // Check for manual tracking first
+                let manual_id = *manual_hack.lock().await;
+                
+                if let Some(mid) = manual_id {
+                    // Manual tracking active
+                    // Skip connection logic, just generate an update
+                    let mut update: Option<TrackingUpdate> = Some(TrackingUpdate { is_active: true, level_id: None });
+                    
+                    // We need to ensure active_hack matches manual_id for the session logic to work
+                    // Or we just pass manual_id to session logic?
+                    // Let's use manual_id as the hack_id for processing
+                    
+                    // 4. Process Update (Manual)
+                    if let Some(up) = update {
+                         // Session Logic
+                         let mut sess_guard = session_id.lock().await;
+                         
+                         if up.is_active {
+                             if sess_guard.is_none() {
+                                 let conn = db_pool.get();
+                                 if let Ok(conn) = conn {
+                                     let now = Utc::now();
+                                     let res = conn.execute(
+                                         "INSERT INTO play_sessions (hack_id, start_time) VALUES (?1, ?2)",
+                                         (mid, now.to_rfc3339())
+                                     );
+                                     if let Ok(count) = res {
+                                         if count > 0 {
+                                            *sess_guard = Some(conn.last_insert_rowid());
+                                         }
+                                     }
+                                 }
+                             } else {
+                                 if let Some(sid) = *sess_guard {
+                                     let conn = db_pool.get();
+                                     if let Ok(conn) = conn {
+                                         let now = Utc::now();
+                                         let _ = conn.execute(
+                                             "UPDATE play_sessions SET end_time = ?1, duration_seconds = duration_seconds + 1 WHERE id = ?2",
+                                             (now.to_rfc3339(), sid)
+                                         );
+                                         
+                                         let _ = conn.execute(
+                                             "UPDATE hacks SET total_play_time = total_play_time + 1 WHERE id = ?1",
+                                             [mid]
+                                         );
+                                     }
+                                 }
+                             }
+                         }
+                    }
+                    
+                    sleep(Duration::from_secs(1)).await;
+                    continue; // Skip the rest of the loop
+                }
+
                 // 0. Check Config
                 let (enable_tracking, debug_logging) = {
                      let conn = db_pool.get();
@@ -223,20 +295,49 @@ impl TrackingService {
                 {
                     let mut cl_guard = client_state.lock().await;
                     if let Some(client) = cl_guard.as_mut() {
-                         // Sequential reads
-                         let gamemode = client.read_memory(SmwAnalyzer::ADDR_GAME_MODE, 1).await;
-                         if let Ok(gm) = gamemode {
-                             if let Ok(lvl) = client.read_memory(SmwAnalyzer::ADDR_LEVEL_ID, 1).await {
-                                 if let Ok(ev) = client.read_memory(SmwAnalyzer::ADDR_EVENT_FLAGS, SmwAnalyzer::EVENT_FLAGS_SIZE).await {
-                                     if !gm.is_empty() && !lvl.is_empty() && !ev.is_empty() {
-                                          let mut an = analyzer.lock().await;
-                                          update = Some(an.interpret(gm[0], lvl[0], &ev));
+                        // Check if we have an active hack identified
+                        let hack_id_opt = *active_hack.lock().await;
+                        
+                        if hack_id_opt.is_some() {
+                             // Try SMW-specific reads first
+                             let gamemode = client.read_memory(SmwAnalyzer::ADDR_GAME_MODE, 1).await;
+                             let level = client.read_memory(SmwAnalyzer::ADDR_LEVEL_ID, 1).await;
+                             let events = client.read_memory(SmwAnalyzer::ADDR_EVENT_FLAGS, SmwAnalyzer::EVENT_FLAGS_SIZE).await;
+
+                             if let (Ok(gm), Ok(lvl), Ok(ev)) = (gamemode, level, events) {
+                                  if !gm.is_empty() && !lvl.is_empty() && !ev.is_empty() {
+                                       let mut an = analyzer.lock().await;
+                                       update = Some(an.interpret(gm[0], lvl[0], &ev));
+                                  } else {
+                                      // Read returned empty? Likely transient error.
+                                      // Fallback to GENERIC active if we are still attached?
+                                      // Actually empty read usually means error.
+                                       update = Some(TrackingUpdate { is_active: true, level_id: None });
+                                  }
+                             } else {
+                                 // SMW reads failed. 
+                                 // This could be because:
+                                 // 1. Connection lost (we should check this).
+                                 // 2. Not an SMW game (addresses invalid causes error? or just garbage?)
+                                 // 3. Device detached.
+                                 
+                                 // Let's do a "liveness check" to see if we are still connected.
+                                 // Read a safe address (Header Title at 0xFFC0)
+                                 match client.read_memory(0x00FFC0, 1).await {
+                                     Ok(_) => {
+                                         // Device is alive, just not SMW or read failed. 
+                                         // Assume GENERIC tracking (just time).
+                                         update = Some(TrackingUpdate { is_active: true, level_id: None });
+                                     },
+                                     Err(_) => {
+                                         // Connection truly dead.
+                                         *cl_guard = None;
                                      }
-                                 } else { *cl_guard = None; }
-                             } else { *cl_guard = None; }
-                         } else { 
-                             *cl_guard = None; 
-                         }
+                                 }
+                             }
+                        } else {
+                            // No active hack, nothing to track yet.
+                        }
                     }
                 }
 
@@ -272,11 +373,17 @@ impl TrackingService {
                                              "UPDATE play_sessions SET end_time = ?1, duration_seconds = duration_seconds + 1 WHERE id = ?2",
                                              (now.to_rfc3339(), sid)
                                          );
+                                         
+                                         // Also update total play time for the hack
+                                         let _ = conn.execute(
+                                             "UPDATE hacks SET total_play_time = total_play_time + 1 WHERE id = ?1",
+                                             [hack_id]
+                                         );
                                      }
                                  }
                              }
                              
-                             // Level Timing Logic
+                             // Level Timing Logic (Only if level_id present)
                              if let Some(lvl) = up.level_id {
                                  let conn = db_pool.get();
                                  if let Ok(conn) = conn {
@@ -299,9 +406,10 @@ impl TrackingService {
         });
     }
 
-    pub async fn get_status(&self) -> (bool, bool, bool, u8) {
+    pub async fn get_status(&self) -> (bool, bool, bool, u8, Option<i64>) {
         let client_guard = self.client.lock().await;
         let analyzer = self.analyzer.lock().await;
+        let manual_id = *self.manual_hack_id.lock().await;
         
         let connected = client_guard.is_some();
         let attached = connected; // If we have client, we are attached (logic in loop)
@@ -310,7 +418,8 @@ impl TrackingService {
             connected, 
             attached, 
             analyzer.in_level,
-            analyzer.last_game_mode
+            analyzer.last_game_mode,
+            manual_id
         )
     }
 }

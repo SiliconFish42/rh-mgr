@@ -35,6 +35,8 @@ export function LibraryView() {
     setFilterAuthor,
     filterMinRating,
     setFilterMinRating,
+    filterStatus,
+    setFilterStatus,
     clearFilters,
   } = useFilters("library-filters");
 
@@ -47,6 +49,7 @@ export function LibraryView() {
       hackType: filterType,
       author: filterAuthor,
       minRating: filterMinRating,
+      status: filterStatus,
     },
     true
   );
@@ -80,10 +83,12 @@ export function LibraryView() {
         filterType={filterType}
         filterAuthor={filterAuthor}
         filterMinRating={filterMinRating}
+        filterStatus={filterStatus}
         onFilterDifficultyChange={setFilterDifficulty}
         onFilterTypeChange={setFilterType}
         onFilterAuthorChange={setFilterAuthor}
         onFilterMinRatingChange={setFilterMinRating}
+        onFilterStatusChange={setFilterStatus}
         onClearFilters={handleClearFilters}
       />
 

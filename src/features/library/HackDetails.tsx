@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star, Play, Wrench, Trash2, Check, Plus, Edit2, X } from "lucide-react";
+import { ArrowLeft, Star, Play, Wrench, Trash2, Check, Plus, Edit2, X, Clock, PlayCircle, StopCircle } from "lucide-react";
 import { useHackCompletions } from "@/hooks/useCompletions";
 import { DeleteHackDialog } from "@/components/DeleteHackDialog";
 
@@ -21,6 +21,8 @@ interface Hack {
   hack_type?: string | null;
   download_url?: string | null;
   readme?: string | null;
+  status?: string | null;
+  total_play_time?: number | null;
 }
 
 interface LevelTiming {
@@ -51,12 +53,24 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
   const [scrollLeft, setScrollLeft] = useState(0);
   const [activeTab, setActiveTab] = useState<'description' | 'readme'>('description');
   const [stats, setStats] = useState<HackStats | null>(null);
+  const [isManualTracking, setIsManualTracking] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>(hack.status || 'not_started');
+  const [editingTime, setEditingTime] = useState(false);
+  const [editHours, setEditHours] = useState("");
+  const [editMinutes, setEditMinutes] = useState("");
+
+  useEffect(() => {
+    setCurrentStatus(hack.status || 'not_started');
+  }, [hack.status]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await invoke<HackStats>('get_hack_stats', { hackId: hack.id });
-        setStats(res);
+        const statsRes = await invoke<HackStats>('get_hack_stats', { hackId: hack.id });
+        setStats(statsRes);
+
+        const trackingRes = await invoke<{ manual_hack_id?: number }>('get_tracking_status');
+        setIsManualTracking(trackingRes.manual_hack_id === hack.id);
       } catch (e) {
         console.error(e);
       }
@@ -65,6 +79,66 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, [hack.id]);
+
+  async function handleManualTrackingToggle() {
+    try {
+      if (isManualTracking) {
+        await invoke('stop_manual_tracking');
+        setIsManualTracking(false);
+      } else {
+        await invoke('start_manual_tracking', { hackId: hack.id });
+        setIsManualTracking(true);
+      }
+    } catch (e) {
+      console.error("Failed to toggle manual tracking:", e);
+    }
+  }
+
+  async function handleStatusChange(newStatus: string) {
+    try {
+      await invoke('set_hack_status', { hackId: hack.id, status: newStatus });
+      setCurrentStatus(newStatus);
+    } catch (e) {
+      console.error("Failed to update status:", e);
+    }
+  }
+
+  async function handleUpdatePlayTime() {
+    const h = parseInt(editHours) || 0;
+    const m = parseInt(editMinutes) || 0;
+    const totalSeconds = h * 3600 + m * 60;
+
+    try {
+      // Calculate difference to send to update_play_time (which adds/subtracts)
+      // Or we need a set_play_time command?
+      // The command is `update_play_time(hack_id, seconds)` which adds seconds.
+      // Wait, I implemented `update_play_time` as ADDITION in the backend. 
+      // "Current implementation: hacks.total_play_time = hacks.total_play_time + seconds"
+      // If I want to SET the time, I need to calculate the difference.
+      // Or update the backend command to 'set_play_time'.
+      // Let's check the backend logic again. `update_play_time` adds.
+
+      const currentSeconds = stats?.total_play_time_seconds || 0;
+      const diff = totalSeconds - currentSeconds;
+
+      if (diff !== 0) {
+        await invoke('update_play_time', { hackId: hack.id, seconds: diff });
+        // Refresh stats immediately
+        const statsRes = await invoke<HackStats>('get_hack_stats', { hackId: hack.id });
+        setStats(statsRes);
+      }
+      setEditingTime(false);
+    } catch (e) {
+      console.error("Failed to update time:", e);
+    }
+  }
+
+  function startEditTime() {
+    const seconds = stats?.total_play_time_seconds || 0;
+    setEditHours(Math.floor(seconds / 3600).toString());
+    setEditMinutes(Math.floor((seconds % 3600) / 60).toString());
+    setEditingTime(true);
+  }
 
   // Completions
   const { completions, loading: completionsLoading, createCompletion, updateCompletion, deleteCompletion } = useHackCompletions(hack.id);
@@ -313,6 +387,24 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
                   Clear Tracking Data
                 </Button>
               )}
+              <Button
+                onClick={handleManualTrackingToggle}
+                variant={isManualTracking ? "destructive" : "secondary"}
+                size="lg"
+                className="w-full"
+              >
+                {isManualTracking ? (
+                  <>
+                    <StopCircle className="w-4 h-4 mr-2" />
+                    Stop Tracking
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="w-4 h-4 mr-2" />
+                    Start Manual Tracking
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Screenshots */}
@@ -377,6 +469,22 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
                 <span className="font-semibold">PATCHED</span>
               </div>
             )}
+
+            {/* Status Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Status:</span>
+              <select
+                value={currentStatus}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="bg-secondary border border-border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="not_started">Not Started</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="plan_to_play">Plan to Play</option>
+                <option value="dropped">Dropped</option>
+              </select>
+            </div>
 
             {/* Title */}
             <h2 className="text-4xl font-bold">{hack.name}</h2>
@@ -495,9 +603,46 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
             <div className="space-y-4 border-t border-border pt-6">
               <h3 className="text-lg font-semibold">Stats</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-secondary rounded-lg border border-border text-center">
+                <div className="p-4 bg-secondary rounded-lg border border-border text-center relative group">
                   <div className="text-sm text-muted-foreground mb-1">Total Play Time</div>
-                  <div className="text-2xl font-bold">{formatPlayTime(stats?.total_play_time_seconds)}</div>
+                  {editingTime ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-1 justify-center">
+                        <input
+                          type="number"
+                          className="w-12 bg-background border border-border rounded px-1 text-center"
+                          value={editHours}
+                          onChange={e => setEditHours(e.target.value)}
+                          placeholder="H"
+                        />
+                        <span>h</span>
+                        <input
+                          type="number"
+                          className="w-12 bg-background border border-border rounded px-1 text-center"
+                          value={editMinutes}
+                          onChange={e => setEditMinutes(e.target.value)}
+                          placeholder="M"
+                        />
+                        <span>m</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" onClick={handleUpdatePlayTime} className="h-6 text-xs">Save</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTime(false)} className="h-6 text-xs">Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{formatPlayTime(stats?.total_play_time_seconds)}</div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                        onClick={startEditTime}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                    </>
+                  )}
                 </div>
                 <div className="p-4 bg-secondary rounded-lg border border-border text-center">
                   <div className="text-sm text-muted-foreground mb-1">Sessions</div>
@@ -647,7 +792,7 @@ export function HackDetails({ hack, onClose, onLaunch, onPatch, onRemove, isPatc
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 

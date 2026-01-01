@@ -18,6 +18,8 @@ interface Hack {
   hack_type?: string | null;
   download_url?: string | null;
   readme?: string | null;
+  status?: string | null;
+  total_play_time?: number | null;
 }
 
 interface HackListProps {
@@ -51,12 +53,37 @@ export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
     return date.toLocaleDateString();
   }
 
+  function formatDuration(seconds: number | null | undefined): string {
+    if (!seconds) return "-";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return `${seconds}s`;
+  }
+
   function formatDownloads(downloads: number | null | undefined): string {
     if (!downloads) return "0";
     if (downloads >= 1000) {
       return `${(downloads / 1000).toFixed(1)}k`;
     }
     return downloads.toString();
+  }
+
+  function getStatusColor(status: string | null | undefined): string {
+    switch (status) {
+      case 'completed': return "bg-green-500/20 text-green-400 border border-green-500/30";
+      case 'in_progress': return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+      case 'plan_to_play': return "bg-purple-500/20 text-purple-400 border border-purple-500/30";
+      case 'dropped': return "bg-red-500/20 text-red-400 border border-red-500/30";
+      default: return "bg-muted text-muted-foreground"; // not_started
+    }
+  }
+
+  function getStatusLabel(status: string | null | undefined): string {
+    if (!status || status === 'not_started') return "Not Started";
+    return status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
   function getDifficultyColor(difficulty: string | null | undefined): string {
@@ -99,13 +126,11 @@ export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
         <thead className="bg-muted/50">
           <tr>
             <th className="text-left p-4 font-semibold text-sm">Name</th>
-            <th className="text-left p-4 font-semibold text-sm">Author</th>
-            <th className="text-left p-4 font-semibold text-sm">Rating</th>
-            <th className="text-left p-4 font-semibold text-sm">Type</th>
+            <th className="text-left p-4 font-semibold text-sm">Status</th>
+            <th className="text-left p-4 font-semibold text-sm">Time Played</th>
             <th className="text-left p-4 font-semibold text-sm">Difficulty</th>
-            <th className="text-left p-4 font-semibold text-sm">Downloads</th>
-            <th className="text-left p-4 font-semibold text-sm">Release Date</th>
-            <th className="text-right p-4 font-semibold text-sm">Action</th>
+            <th className="text-left p-4 font-semibold text-sm">Rating</th>
+            <th className="text-left p-4 font-semibold text-sm">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -124,25 +149,17 @@ export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
                     <div className="font-medium">{hack.name}</div>
                     <CompletionBadge hackId={hack.id} />
                   </div>
-                  {hack.description && (
-                    <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                      {hack.description.replace(/<[^>]*>/g, '')}
-                    </div>
-                  )}
-                </td>
-                <td className="p-4 text-sm text-muted-foreground">{authorNames}</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm font-medium">{hack.rating?.toFixed(1) || "N/A"}</span>
+                  <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                    by {authorNames}
                   </div>
                 </td>
                 <td className="p-4">
-                  {hack.hack_type && (
-                    <span className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                      {hack.hack_type}
-                    </span>
-                  )}
+                  <span className={`text-xs px-2 py-1 rounded border ${getStatusColor(hack.status)}`}>
+                    {getStatusLabel(hack.status)}
+                  </span>
+                </td>
+                <td className="p-4 text-sm text-muted-foreground">
+                  {formatDuration(hack.total_play_time)}
                 </td>
                 <td className="p-4">
                   {hack.difficulty && (
@@ -151,11 +168,11 @@ export function HackList({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
                     </span>
                   )}
                 </td>
-                <td className="p-4 text-sm text-muted-foreground">
-                  {formatDownloads(hack.downloads)}
-                </td>
-                <td className="p-4 text-sm text-muted-foreground">
-                  {formatDate(hack.release_date)}
+                <td className="p-4">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span className="text-sm font-medium">{hack.rating?.toFixed(1) || "N/A"}</span>
+                  </div>
                 </td>
                 <td className="p-4">
                   <div className="flex justify-end">

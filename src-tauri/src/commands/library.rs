@@ -20,13 +20,15 @@ pub struct Hack {
     pub hack_type: Option<String>, // Using hack_type to avoid Rust keyword conflict
     pub download_url: Option<String>,
     pub readme: Option<String>,
+    pub status: Option<String>,
+    pub total_play_time: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct HackFilters {
     pub patched_only: Option<bool>,
     pub unpatched_only: Option<bool>,
-    pub sort_by: Option<String>, // "name", "date", "rating", "downloads"
+    pub sort_by: Option<String>, // "name", "date", "rating", "downloads", "play_time", "status"
     pub sort_direction: Option<String>, // "asc", "desc"
     pub difficulty: Option<String>,
     pub difficulties: Option<Vec<String>>, // Array of difficulties for OR filtering
@@ -34,6 +36,7 @@ pub struct HackFilters {
     pub hack_types: Option<Vec<String>>,
     pub author: Option<String>,
     pub min_rating: Option<f64>,
+    pub status: Option<String>,
 }
 
 #[command]
@@ -129,6 +132,14 @@ pub fn get_hacks_impl(
         params_vec.push(Box::new(min_rating));
     }
     
+    // Status Filter
+    if let Some(status) = &filters.status {
+        if status != "all" {
+             where_clauses.push("status = ?".to_string());
+             params_vec.push(Box::new(status.clone()));
+        }
+    }
+    
     let where_clause = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -142,11 +153,13 @@ pub fn get_hacks_impl(
         "date" => format!("ORDER BY release_date {}", sort_direction),
         "rating" => format!("ORDER BY rating {} NULLS LAST", sort_direction),
         "downloads" => format!("ORDER BY downloads {} NULLS LAST", sort_direction),
+        "play_time" => format!("ORDER BY total_play_time {} NULLS LAST", sort_direction),
+        "status" => format!("ORDER BY status {} NULLS LAST", sort_direction),
         _ => format!("ORDER BY name {}", sort_direction),
     };
     
     let query = format!(
-        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme 
+        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme, status, total_play_time
          FROM hacks {} {} LIMIT ? OFFSET ?",
         where_clause, order_by
     );
@@ -176,6 +189,8 @@ pub fn get_hacks_impl(
                 hack_type: row.get(12)?,
                 download_url: row.get(13)?,
                 readme: row.get(14)?,
+                status: row.get(15)?,
+                total_play_time: row.get(16)?,
             })
         }
     ).map_err(|e| e.to_string())?;
@@ -196,7 +211,7 @@ pub fn get_hack_details(
     let conn = state.db.get().map_err(|e| e.to_string())?;
     
     let mut stmt = conn.prepare(
-        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme 
+        "SELECT id, name, file_path, api_id, authors, release_date, description, images, tags, rating, downloads, difficulty, type, download_url, readme, status, total_play_time 
          FROM hacks WHERE id = ?1"
     ).map_err(|e| e.to_string())?;
     
@@ -217,6 +232,8 @@ pub fn get_hack_details(
             hack_type: row.get(12)?,
             download_url: row.get(13)?,
             readme: row.get(14)?,
+            status: row.get(15)?,
+            total_play_time: row.get(16)?,
         })
     }).map_err(|e| e.to_string())?;
     
@@ -293,6 +310,7 @@ impl Default for HackFilters {
             hack_types: None,
             author: None,
             min_rating: None,
+            status: None,
         }
     }
 }

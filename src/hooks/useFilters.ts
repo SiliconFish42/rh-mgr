@@ -4,18 +4,19 @@ import { invoke } from "@tauri-apps/api/core";
 export function useFilters(persistenceKey?: string) {
   const [availableDifficulties, setAvailableDifficulties] = useState<string[]>([]);
   const [availableHackTypes, setAvailableHackTypes] = useState<string[]>([]);
-  
+
   // Library mode filters (single select)
   const [filterDifficulty, setFilterDifficulty] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("");
   const [filterAuthor, setFilterAuthor] = useState<string>("");
   const [filterMinRating, setFilterMinRating] = useState<string>("");
-  
+  const [filterStatus, setFilterStatus] = useState<string>("");
+
   // Discover mode multi-select filters
   const [difficultyFilters, setDifficultyFilters] = useState<Record<string, boolean>>({});
   const [hackTypeFilters, setHackTypeFilters] = useState<Record<string, boolean>>({});
   const [ratingValue, setRatingValue] = useState<number>(0); // Default to 0 (no minimum)
-  
+
   // Internal state to track if we've loaded from storage
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -36,11 +37,12 @@ export function useFilters(persistenceKey?: string) {
       filterType,
       filterAuthor,
       filterMinRating,
+      filterStatus,
       difficultyFilters,
       hackTypeFilters,
       ratingValue,
     };
-    
+
     localStorage.setItem(persistenceKey, JSON.stringify(stateToSave));
   }, [
     isLoaded,
@@ -49,6 +51,7 @@ export function useFilters(persistenceKey?: string) {
     filterType,
     filterAuthor,
     filterMinRating,
+    filterStatus,
     difficultyFilters,
     hackTypeFilters,
     ratingValue
@@ -59,7 +62,7 @@ export function useFilters(persistenceKey?: string) {
       const options = await invoke("get_filter_options") as { difficulties: string[]; hack_types: string[] };
       setAvailableDifficulties(options.difficulties);
       setAvailableHackTypes(options.hack_types);
-      
+
       // We no longer initialize filters with all options checked by default
     } catch (e) {
       console.error("Failed to load filter options:", e);
@@ -68,18 +71,19 @@ export function useFilters(persistenceKey?: string) {
 
   function loadFiltersFromStorage() {
     if (!persistenceKey) return;
-    
+
     try {
       const stored = localStorage.getItem(persistenceKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        
+
         // Restore single select filters
         if (parsed.filterDifficulty !== undefined) setFilterDifficulty(parsed.filterDifficulty);
         if (parsed.filterType !== undefined) setFilterType(parsed.filterType);
         if (parsed.filterAuthor !== undefined) setFilterAuthor(parsed.filterAuthor);
         if (parsed.filterMinRating !== undefined) setFilterMinRating(parsed.filterMinRating);
-        
+        if (parsed.filterStatus !== undefined) setFilterStatus(parsed.filterStatus);
+
         // Restore multi-select filters
         if (parsed.difficultyFilters !== undefined) setDifficultyFilters(parsed.difficultyFilters);
         if (parsed.hackTypeFilters !== undefined) setHackTypeFilters(parsed.hackTypeFilters);
@@ -96,10 +100,11 @@ export function useFilters(persistenceKey?: string) {
     setFilterType("");
     setFilterAuthor("");
     setFilterMinRating("");
+    setFilterStatus("");
     setDifficultyFilters({});
     setHackTypeFilters({});
     setRatingValue(0);
-    
+
     // Clear storage if applicable
     if (persistenceKey) {
       localStorage.removeItem(persistenceKey);
@@ -119,6 +124,8 @@ export function useFilters(persistenceKey?: string) {
     setFilterAuthor,
     filterMinRating,
     setFilterMinRating,
+    filterStatus,
+    setFilterStatus,
     // Discover mode filters (multi select)
     difficultyFilters,
     setDifficultyFilters,

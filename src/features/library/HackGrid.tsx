@@ -17,6 +17,8 @@ interface Hack {
   difficulty?: string | null;
   hack_type?: string | null;
   download_url?: string | null;
+  status?: string | null;
+  total_play_time?: number | null;
 }
 
 interface HackGridProps {
@@ -50,6 +52,31 @@ export function HackGrid({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
       return `${(downloads / 1000).toFixed(1)}k`;
     }
     return downloads.toString();
+  }
+
+  function formatDuration(seconds: number | null | undefined): string {
+    if (!seconds) return "";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+
+    if (h > 0) return `${h}h ${m}m played`;
+    if (m > 0) return `${m}m played`;
+    return `${seconds}s played`;
+  }
+
+  function getStatusColor(status: string | null | undefined): string {
+    switch (status) {
+      case 'completed': return "bg-green-500/20 text-green-400 border border-green-500/30";
+      case 'in_progress': return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+      case 'plan_to_play': return "bg-purple-500/20 text-purple-400 border border-purple-500/30";
+      case 'dropped': return "bg-red-500/20 text-red-400 border border-red-500/30";
+      default: return "";
+    }
+  }
+
+  function getStatusLabel(status: string | null | undefined): string {
+    if (!status || status === 'not_started') return "";
+    return status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
   function getDifficultyColor(difficulty: string | null | undefined): string {
@@ -133,12 +160,19 @@ export function HackGrid({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   <span className="text-sm font-medium">{hack.rating?.toFixed(1) || "N/A"}</span>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  {formatDownloads(hack.downloads)} downloads
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="text-sm text-muted-foreground">
+                    {formatDownloads(hack.downloads)} downloads
+                  </span>
+                  {hack.total_play_time && hack.total_play_time > 0 && (
+                    <span className="text-xs text-muted-foreground/80 mt-0.5">
+                      {formatDuration(hack.total_play_time)}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Type and Difficulty Tags */}
+              {/* Type and Difficulty and Status Tags */}
               <div className="mb-3 flex flex-wrap gap-2">
                 {hack.hack_type && (
                   <span className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
@@ -148,6 +182,11 @@ export function HackGrid({ hacks, loading, onHackSelect, onLaunch, onPatch, isPa
                 {hack.difficulty && (
                   <span className={`text-xs px-2 py-1 rounded ${getDifficultyColor(hack.difficulty)}`}>
                     {hack.difficulty}
+                  </span>
+                )}
+                {hack.status && hack.status !== 'not_started' && (
+                  <span className={`text-xs px-2 py-1 rounded border ${getStatusColor(hack.status)}`}>
+                    {getStatusLabel(hack.status)}
                   </span>
                 )}
               </div>

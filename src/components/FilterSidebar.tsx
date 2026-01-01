@@ -7,23 +7,25 @@ interface FilterSidebarProps {
   isOpen: boolean;
   onToggle: (open: boolean) => void;
   mode: FilterMode;
-  
+
   // Available options
   availableDifficulties: string[];
   availableHackTypes: string[];
-  
+
   // Library mode props (single select)
   filterDifficulty?: string;
   filterType?: string;
   filterAuthor?: string;
   filterMinRating?: string;
+  filterStatus?: string;
   onFilterDifficultyChange?: (value: string) => void;
   onFilterTypeChange?: (value: string) => void;
   onFilterAuthorChange?: (value: string) => void;
   onFilterMinRatingChange?: (value: string) => void;
+  onFilterStatusChange?: (value: string) => void;
   onClearFilters?: () => void;
   onRefresh?: () => void;
-  
+
   // Discover mode props (multi select)
   difficultyFilters?: Record<string, boolean>;
   hackTypeFilters?: Record<string, boolean>;
@@ -44,10 +46,12 @@ export function FilterSidebar({
   filterType = "",
   filterAuthor = "",
   filterMinRating = "",
+  filterStatus = "",
   onFilterDifficultyChange,
   onFilterTypeChange,
   onFilterAuthorChange,
   onFilterMinRatingChange,
+  onFilterStatusChange,
   onClearFilters,
   // Discover props
   difficultyFilters = {},
@@ -70,7 +74,7 @@ export function FilterSidebar({
           <ChevronRight className="w-4 h-4" />
         </Button>
       )}
-      
+
       {/* Left Sidebar - Filters */}
       <aside className={`${isOpen ? 'w-64' : 'w-0'} border-r border-border bg-card overflow-hidden transition-all duration-300 flex-shrink-0`}>
         <div className={`${isOpen ? 'p-6' : 'p-0'} overflow-y-auto h-full`}>
@@ -87,6 +91,34 @@ export function FilterSidebar({
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* Status Filter (Library Only) */}
+              {mode === "library" && (
+                <div className="mb-8">
+                  <h3 className="text-sm font-medium mb-3">Status</h3>
+                  <div className="space-y-2">
+                    {[
+                      { value: "not_started", label: "Not Started" },
+                      { value: "in_progress", label: "In Progress" },
+                      { value: "completed", label: "Completed" },
+                      { value: "plan_to_play", label: "Plan to Play" },
+                      { value: "dropped", label: "Dropped" },
+                    ].map((status) => (
+                      <label key={status.value} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filterStatus === status.value}
+                          onChange={(e) => {
+                            onFilterStatusChange?.(e.target.checked ? status.value : "");
+                          }}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm">{status.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Difficulty Filters */}
               <div className="mb-8">

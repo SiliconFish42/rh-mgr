@@ -20,7 +20,9 @@ pub fn init_db(conn: &Connection) -> Result<()> {
                 type TEXT,
                 download_url TEXT,
                 readme TEXT,
-                rom_checksum TEXT
+                rom_checksum TEXT,
+                status TEXT DEFAULT 'not_started',
+                total_play_time INTEGER DEFAULT 0
             )",
             [],
         )?;
@@ -71,7 +73,14 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         |row| row.get(0),
     ) {
         // Migration needed if the schema is old (missing columns or has strict constraints).
-        sql.contains("file_path TEXT NOT NULL") || !sql.contains("authors TEXT") || !sql.contains("difficulty TEXT") || !sql.contains("download_url TEXT") || !sql.contains("readme TEXT") || !sql.contains("rom_checksum TEXT")
+        sql.contains("file_path TEXT NOT NULL") || 
+        !sql.contains("authors TEXT") || 
+        !sql.contains("difficulty TEXT") || 
+        !sql.contains("download_url TEXT") || 
+        !sql.contains("readme TEXT") || 
+        !sql.contains("rom_checksum TEXT") ||
+        !sql.contains("status TEXT") ||
+        !sql.contains("total_play_time INTEGER")
     } else {
         false
     };
@@ -109,7 +118,9 @@ fn migrate_db(conn: &Connection) -> Result<()> {
                     type TEXT,
                     download_url TEXT,
                     readme TEXT,
-                    rom_checksum TEXT
+                    rom_checksum TEXT,
+                    status TEXT DEFAULT 'not_started',
+                    total_play_time INTEGER DEFAULT 0
                 )",
                 [],
             )?;
@@ -145,7 +156,21 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN download_url TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN readme TEXT", []);
         let _ = conn.execute("ALTER TABLE hacks ADD COLUMN rom_checksum TEXT", []);
+        let _ = conn.execute("ALTER TABLE hacks ADD COLUMN status TEXT DEFAULT 'not_started'", []);
+        let _ = conn.execute("ALTER TABLE hacks ADD COLUMN total_play_time INTEGER DEFAULT 0", []);
         
+        // Backfill total_play_time from play_sessions if it's 0
+        let _ = conn.execute(
+            "UPDATE hacks 
+             SET total_play_time = (
+                 SELECT COALESCE(SUM(duration_seconds), 0) 
+                 FROM play_sessions 
+                 WHERE play_sessions.hack_id = hacks.id
+             ) 
+             WHERE total_play_time = 0", 
+            []
+        );
+
         conn.execute("COMMIT", [])?;
     } else {
         // Add missing columns if they don't exist.
@@ -209,6 +234,22 @@ fn migrate_db(conn: &Connection) -> Result<()> {
         [],
     )?;
     
+    Ok(())
+}
+
+pub fn set_hack_status(conn: &Connection, hack_id: i64, status: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE hacks SET status = ?1 WHERE id = ?2",
+        [status, &hack_id.to_string()],
+    )?;
+    Ok(())
+}
+
+pub fn update_play_time(conn: &Connection, hack_id: i64, seconds: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE hacks SET total_play_time = MAX(0, total_play_time + ?1) WHERE id = ?2",
+        [seconds.to_string(), hack_id.to_string()],
+    )?;
     Ok(())
 }
 
@@ -319,5 +360,50 @@ mod tests {
             ["Null Path Hack"],
         );
         assert!(result.is_ok(), "Should be able to insert NULL file_path now");
+    }
+
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).expect("Database initialization failed");
+        conn
+    }
+
+    #[test]
+    fn test_set_hack_status() {
+        let conn = setup_db();
+        conn.execute("INSERT INTO hacks (name) VALUES ('Test Hack')", []).unwrap();
+        let hack_id = conn.last_insert_rowid();
+
+        set_hack_status(&conn, hack_id, "in_progress").expect("Failed to set status");
+
+        let status: String = conn.query_row(
+            "SELECT status FROM hacks WHERE id = ?1",
+            [hack_id],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(status, "in_progress");
+    }
+
+    #[test]
+    fn test_update_play_time() {
+        let conn = setup_db();
+        conn.execute("INSERT INTO hacks (name, total_play_time) VALUES ('Test Hack', 100)", []).unwrap();
+        let hack_id = conn.last_insert_rowid();
+
+        // Add time
+        update_play_time(&conn, hack_id, 50).expect("Failed to update play time");
+        let time: i64 = conn.query_row("SELECT total_play_time FROM hacks WHERE id = ?1", [hack_id], |row| row.get(0)).unwrap();
+        assert_eq!(time, 150);
+
+        // Subtract time
+        update_play_time(&conn, hack_id, -20).expect("Failed to subtract play time");
+        let time: i64 = conn.query_row("SELECT total_play_time FROM hacks WHERE id = ?1", [hack_id], |row| row.get(0)).unwrap();
+        assert_eq!(time, 130);
+
+        // Ensure non-negative
+        update_play_time(&conn, hack_id, -200).expect("Failed to subtract play time");
+        let time: i64 = conn.query_row("SELECT total_play_time FROM hacks WHERE id = ?1", [hack_id], |row| row.get(0)).unwrap();
+        assert_eq!(time, 0);
     }
 }

@@ -43,6 +43,10 @@ pub fn run() {
             crate::tracking::commands::get_hack_stats,
             crate::tracking::commands::clear_hack_stats,
             crate::tracking::commands::clear_all_tracking_data,
+            crate::tracking::commands::start_manual_tracking,
+            crate::tracking::commands::stop_manual_tracking,
+            crate::tracking::commands::set_hack_status,
+            crate::tracking::commands::update_play_time,
             commands::logs::get_log_content,
             commands::logs::clear_log,
         ])
