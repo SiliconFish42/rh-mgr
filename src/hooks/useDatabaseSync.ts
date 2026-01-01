@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
-interface SyncProgress {
+export interface SyncProgress {
   stage: "fetching" | "processing" | "complete";
   message: string;
   progress: number;
@@ -83,7 +83,7 @@ export function useDatabaseSync(onSyncComplete?: () => void) {
       try {
         unlisten = await listen<SyncProgress>("sync-progress", (event) => {
           setSyncProgress(event.payload);
-          
+
           // If sync is complete, mark as not syncing after a short delay
           if (event.payload.stage === "complete") {
             setTimeout(() => {
